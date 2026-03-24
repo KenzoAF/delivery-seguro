@@ -8,7 +8,7 @@ const CONFIG = {
     TILE_SIZE: 128,          // Tiles maiores para mais detalhes
     RESOLUTION: { w: 1280, h: 720 },
     CAMERA_SMOOTH: 0.1,      // Fator de suavização da câmera
-    
+
     // FÍSICA DO CARRO
     CAR: {
         MAX_SPEED: 8.0,
@@ -23,7 +23,7 @@ const CONFIG = {
         UNDERSTEER_MIN: 0.6, // Começa a perder controle a 60% da velocidade
         DRIFT_FACTOR: 0.94   // Perda de aderência lateral
     },
-    
+
     // CLIMA
     WEATHER: {
         SUNNY: { friction: 1.0, visibility: 1.0 },
@@ -45,7 +45,7 @@ class Input {
         window.addEventListener('keydown', e => this.keys[e.code] = true);
         window.addEventListener('keyup', e => this.keys[e.code] = false);
     }
-    
+
     isPressed(code) {
         return !!this.keys[code];
     }
@@ -94,14 +94,16 @@ class SoundSynth {
 class CityMap {
     constructor() {
         this.tileSize = CONFIG.TILE_SIZE;
-        // 0: Grama, 1: Asfalto, 2: Calçada, 3: Prédio/Muro
+        // 0: Grama, 1: Asfalto, 2: Calçada, 3: Prédio/Muro, 4: Barreira Invisível (Borda)
         this.grid = [
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+            [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
+            [4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4],
+            [4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4],
+            [4, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4],
+            [4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4],
+            [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4],
+            [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4]
         ];
     }
 
@@ -112,6 +114,8 @@ class CityMap {
                 const tx = c * this.tileSize;
                 const ty = r * this.tileSize;
 
+                if (tile === 4) continue; // Pula renderização da barreira invisível
+
                 if (tile === 0) ctx.fillStyle = '#064e3b';
                 else if (tile === 1) ctx.fillStyle = '#1e293b';
                 else if (tile === 2) ctx.fillStyle = '#64748b';
@@ -119,7 +123,7 @@ class CityMap {
 
                 ctx.fillRect(tx, ty, this.tileSize, this.tileSize);
 
-                if (tile === 1 && r === 2) {
+                if (tile === 1 && r === 3) {
                     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
                     ctx.lineWidth = 4;
                     ctx.setLineDash([40, 40]);
@@ -136,8 +140,9 @@ class CityMap {
     checkCollision(x, y) {
         const c = Math.floor(x / this.tileSize);
         const r = Math.floor(y / this.tileSize);
-        if (r < 0 || r >= this.grid.length || c < 0 || c >= this.grid[0].length) return false;
-        return this.grid[r][c] === 3;
+        if (r < 0 || r >= this.grid.length || c < 0 || c >= this.grid[0].length) return true; // Conta como colisão se sair do grid
+        const tile = this.grid[r][c];
+        return tile === 3 || tile === 4; // Colide com prédios ou barreiras invisíveis
     }
 }
 
@@ -153,7 +158,7 @@ class PlayerVehicle {
         this.velocity = { x: 0, y: 0 };
         this.integrity = 1.0;
         this.infractions = 0;
-        
+
         // Propriedades físicas dinâmicas
         this.width = CONFIG.CAR.WIDTH;
         this.height = CONFIG.CAR.HEIGHT;
@@ -164,11 +169,11 @@ class PlayerVehicle {
         const weatherMod = CONFIG.WEATHER[weather] || CONFIG.WEATHER.SUNNY;
         const speedRatio = Math.abs(this.speed) / CONFIG.CAR.MAX_SPEED;
 
-        // 1. Aceleração e Frenagem (Torque Linear)
-        if (input.isPressed('KeyW')) { // Controle manual de volta
-            // Aceleração progressiva (menos torque em velocidades altas)
-            const torque = CONFIG.CAR.TORQUE * (1 - (speedRatio * 0.5));
-            this.speed += torque * weatherMod.friction;
+        // 1. Aceleração e Frenagem (Lerp para Suavidade)
+        if (input.isPressed('KeyW')) {
+            const targetSpeed = CONFIG.CAR.MAX_SPEED;
+            // Interpolação (Lerp) para ganho de velocidade gradual e sensação de peso
+            this.speed += (targetSpeed - this.speed) * 0.02 * weatherMod.friction;
         } else if (input.isPressed('KeyS')) {
             this.speed -= CONFIG.CAR.BRAKE * weatherMod.friction;
         } else {
@@ -183,7 +188,7 @@ class PlayerVehicle {
 
         // 2. Direção Baseada em Velocidade (Agilidade vs Subesterço)
         let turnPower = CONFIG.CAR.TURN_POWER;
-        
+
         if (speedRatio < 0.4) {
             // Curvas precisas em baixa velocidade
             turnPower *= 1.2;
@@ -191,13 +196,13 @@ class PlayerVehicle {
             // Subesterço em alta velocidade
             const understeer = 1.0 - (speedRatio - CONFIG.CAR.UNDERSTEER_MIN) * 1.5;
             turnPower *= Math.max(0.3, understeer);
-            
+
             // Drift Lateral se curvar bruscamente
             if (input.isPressed('KeyA') || input.isPressed('KeyD')) {
                 this.drift += 0.02 * speedRatio;
             }
         }
-        
+
         this.drift *= 0.9; // Recuperação gradual do drift
 
         if (input.isPressed('KeyA')) this.angle -= turnPower;
@@ -226,12 +231,12 @@ class PlayerVehicle {
     applyPackageDamage(amount) {
         this.integrity -= amount;
         if (this.integrity < 0) this.integrity = 0;
-        
+
         // Feedback Visual
         const flash = document.getElementById('damage-flash');
         flash.style.opacity = '1';
         setTimeout(() => flash.style.opacity = '0', 50);
-        
+
         if (this.integrity < 0.3) {
             document.getElementById('integrity-bar').classList.add('integrity-warn');
         }
@@ -245,36 +250,36 @@ class PlayerVehicle {
         // Sombra Projetada
         ctx.fillStyle = 'rgba(0,0,0,0.4)';
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(-this.width/2 + 5, -this.height/2 + 5, this.width, this.height, 6);
+        if (ctx.roundRect) ctx.roundRect(-this.width / 2 + 5, -this.height / 2 + 5, this.width, this.height, 6);
         ctx.fill();
 
         // Chassi (Gradiente Premium)
-        const gradient = ctx.createLinearGradient(-this.width/2, 0, this.width/2, 0);
+        const gradient = ctx.createLinearGradient(-this.width / 2, 0, this.width / 2, 0);
         gradient.addColorStop(0, '#2563eb');
         gradient.addColorStop(1, '#60a5fa');
-        
+
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 6);
+        if (ctx.roundRect) ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 6);
         ctx.fill();
 
         // Vidros
         ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-        ctx.fillRect(-2, -this.height/2 + 4, 15, this.height - 8);
+        ctx.fillRect(-2, -this.height / 2 + 4, 15, this.height - 8);
 
         // Faróis (Luz Emitida)
         ctx.fillStyle = '#fff9e6';
         ctx.shadowBlur = 15;
         ctx.shadowColor = '#fff9e6';
-        ctx.fillRect(this.width/2 - 2, -this.height/2 + 2, 4, 6);
-        ctx.fillRect(this.width/2 - 2, this.height/2 - 8, 4, 6);
-        
+        ctx.fillRect(this.width / 2 - 2, -this.height / 2 + 2, 4, 6);
+        ctx.fillRect(this.width / 2 - 2, this.height / 2 - 8, 4, 6);
+
         // Lanternas Traseiras (Freio)
         ctx.shadowBlur = (this.speed < 0 || this.drift > 0.05) ? 20 : 0;
         ctx.shadowColor = '#ef4444';
         ctx.fillStyle = '#ef4444';
-        ctx.fillRect(-this.width/2 - 1, -this.height/2 + 4, 3, 4);
-        ctx.fillRect(-this.width/2 - 1, this.height/2 - 8, 3, 4);
+        ctx.fillRect(-this.width / 2 - 1, -this.height / 2 + 4, 3, 4);
+        ctx.fillRect(-this.width / 2 - 1, this.height / 2 - 8, 3, 4);
 
         ctx.restore();
     }
@@ -306,7 +311,7 @@ class TrafficLight {
 
     checkViolation(player) {
         if (this.state !== 'RED') return false;
-        
+
         // Detecção baseada no centro do carro atravessando a "linha de pare"
         // Simplificado: check se o centro está em uma box específica do semáforo
         const dist = Math.hypot(player.x - this.x, player.y - this.y);
@@ -319,7 +324,7 @@ class TrafficLight {
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
-        
+
         // Linha de Pare
         ctx.fillStyle = 'rgba(255,255,255,0.2)';
         ctx.fillRect(-60, -100, 120, 10);
@@ -327,24 +332,24 @@ class TrafficLight {
         // Poste
         ctx.fillStyle = '#1e293b';
         ctx.fillRect(40, -40, 20, 80);
-        
+
         // Caixa de luzes
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(40, -40, 20, 45);
 
         // Luzes Individualizadas
         const colors = { GREEN: '#22c55e', YELLOW: '#eab308', RED: '#ef4444', OFF: '#334155' };
-        
+
         ctx.shadowBlur = 0;
         ctx.fillStyle = (this.state === 'RED') ? colors.RED : colors.OFF;
         if (this.state === 'RED') { ctx.shadowBlur = 10; ctx.shadowColor = colors.RED; }
         ctx.beginPath(); ctx.arc(50, -32, 5, 0, Math.PI * 2); ctx.fill();
-        
+
         ctx.shadowBlur = 0;
         ctx.fillStyle = (this.state === 'YELLOW') ? colors.YELLOW : colors.OFF;
         if (this.state === 'YELLOW') { ctx.shadowBlur = 10; ctx.shadowColor = colors.YELLOW; }
         ctx.beginPath(); ctx.arc(50, -18, 5, 0, Math.PI * 2); ctx.fill();
-        
+
         ctx.shadowBlur = 0;
         ctx.fillStyle = (this.state === 'GREEN') ? colors.GREEN : colors.OFF;
         if (this.state === 'GREEN') { ctx.shadowBlur = 10; ctx.shadowColor = colors.GREEN; }
@@ -374,7 +379,7 @@ class NPCVehicle {
     update(player, lights) {
         const target = this.path[this.nodeIndex];
         const distToTarget = Math.hypot(target.x - this.x, target.y - this.y);
-        
+
         if (distToTarget < 20) {
             this.nodeIndex = (this.nodeIndex + 1) % this.path.length;
         }
@@ -385,7 +390,7 @@ class NPCVehicle {
 
         // 2. Detecção de Obstáculos (Raycasting Simples)
         this.isStopped = false;
-        
+
         // Parar se semáforo à frente estiver vermelho
         lights.forEach(l => {
             const distToLight = Math.hypot(l.x - this.x, l.y - this.y);
@@ -410,19 +415,19 @@ class NPCVehicle {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
-        
+
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        if (ctx.roundRect) ctx.roundRect(-this.width/2, -this.height/2, this.width, this.height, 4);
+        if (ctx.roundRect) ctx.roundRect(-this.width / 2, -this.height / 2, this.width, this.height, 4);
         ctx.fill();
-        
+
         if (this.isStopped) {
             ctx.fillStyle = '#ef4444';
             ctx.shadowBlur = 10; ctx.shadowColor = '#ef4444';
-            ctx.fillRect(-this.width/2, -this.height/2 + 4, 2, 4);
-            ctx.fillRect(-this.width/2, this.height/2 - 8, 2, 4);
+            ctx.fillRect(-this.width / 2, -this.height / 2 + 4, 2, 4);
+            ctx.fillRect(-this.width / 2, this.height / 2 - 8, 2, 4);
         }
-        
+
         ctx.restore();
     }
 }
@@ -451,7 +456,7 @@ class Pedestrian {
         }
 
         this.y += this.speed * this.dir;
-        
+
         if (Math.abs(this.y - this.startY) > this.range) {
             this.dir *= -1;
             this.state = 'WAITING';
@@ -477,13 +482,13 @@ class Game {
         this.ctx = this.canvas.getContext('2d');
         this.input = new Input();
         this.sound = new SoundSynth();
-        
+
         this.state = 'MENU';
         this.camera = { x: 0, y: 0 };
         this.weather = 'SUNNY';
         this.levelIndex = 0;
         this.score = 0;
-        
+
         this.entities = {
             player: null,
             npcs: [],
@@ -509,7 +514,7 @@ class Game {
             this.sound.init(); // Ativa o áudio com interação
             this.changeState('LEVEL_START');
         };
-        
+
         document.getElementById('tutorial-btn').onclick = () => this.changeState('TUTORIAL');
         document.getElementById('back-to-menu-btn').onclick = () => this.changeState('MENU');
         document.getElementById('restart-btn').onclick = () => location.reload();
@@ -522,7 +527,7 @@ class Game {
         document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
         document.getElementById('hud').classList.add('hidden');
 
-        switch(newState) {
+        switch (newState) {
             case 'MENU':
                 document.getElementById('menu-screen').classList.remove('hidden');
                 break;
@@ -553,8 +558,8 @@ class Game {
         this.entities.map = new CityMap();
         this.entities.player = new PlayerVehicle(200, 400);
         this.entities.npcs = [
-            new NPCVehicle([{x: -200, y: 350}, {x: 3000, y: 350}], 2),
-            new NPCVehicle([{x: 1000, y: 650}, {x: -500, y: 650}], 1.5)
+            new NPCVehicle([{ x: -200, y: 350 }, { x: 3000, y: 350 }], 2),
+            new NPCVehicle([{ x: 1000, y: 650 }, { x: -500, y: 650 }], 1.5)
         ];
         this.entities.lights = [
             new TrafficLight(800, 500),
@@ -564,11 +569,11 @@ class Game {
             new Pedestrian(1200, 400, 200),
             new Pedestrian(2200, 400, 200)
         ];
-        
+
         // Clima baseado no nível
         this.weather = (idx > 1) ? 'RAINY' : 'SUNNY';
         document.getElementById('rain-overlay').classList.toggle('hidden', this.weather !== 'RAINY');
-        
+
         const names = ["BAIRRO TRANQUILO", "CENTRO COMERCIAL", "RODOVIA NA CHUVA"];
         document.getElementById('level-title').innerText = `MISSÃO ${idx + 1}`;
         document.getElementById('level-desc').innerText = names[idx % names.length];
@@ -623,8 +628,8 @@ class Game {
         pedestrians.forEach(p => p.update());
 
         // 3. Sistema de Câmera (Smooth Following)
-        this.camera.x += (player.x - CONFIG.RESOLUTION.w/2 - this.camera.x) * CONFIG.CAMERA_SMOOTH;
-        this.camera.y += (player.y - CONFIG.RESOLUTION.h/2 - this.camera.y) * CONFIG.CAMERA_SMOOTH;
+        this.camera.x += (player.x - CONFIG.RESOLUTION.w / 2 - this.camera.x) * CONFIG.CAMERA_SMOOTH;
+        this.camera.y += (player.y - CONFIG.RESOLUTION.h / 2 - this.camera.y) * CONFIG.CAMERA_SMOOTH;
 
         // 4. Detecção de Colisões Fatais
         npcs.forEach(n => {
@@ -664,7 +669,7 @@ class Game {
         const intBar = document.getElementById('integrity-bar');
         const speedVal = document.getElementById('speed-val');
         const timerVal = document.getElementById('timer-val');
-        
+
         // Atualizar Cronômetro
         if (this.startTime) {
             const elapsed = Date.now() - this.startTime;
@@ -672,10 +677,10 @@ class Game {
             const seconds = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
             timerVal.innerText = `${minutes}:${seconds}`;
         }
-        
+
         const percentage = (player.integrity * 100).toFixed(0);
         intBar.style.width = percentage + '%';
-        
+
         // Cor dinâmica da barra
         if (percentage > 70) intBar.style.background = 'var(--success-gradient)';
         else if (percentage > 30) intBar.style.background = 'var(--warning-gradient)';
@@ -691,7 +696,7 @@ class Game {
 
     draw() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
+
         this.ctx.save();
         this.ctx.translate(-this.camera.x, -this.camera.y);
 
@@ -714,7 +719,7 @@ class Game {
         // Asfalto
         this.ctx.fillStyle = '#1e293b';
         this.ctx.fillRect(-500, 300, 5000, 400);
-        
+
         // Grama / Calçada
         this.ctx.fillStyle = '#064e3b';
         this.ctx.fillRect(-500, 0, 5000, 300);
@@ -734,7 +739,7 @@ class Game {
     drawRain() {
         this.ctx.strokeStyle = 'rgba(186, 215, 255, 0.15)';
         this.ctx.lineWidth = 1;
-        for(let i=0; i<40; i++) {
+        for (let i = 0; i < 40; i++) {
             const rx = Math.random() * this.canvas.width;
             const ry = Math.random() * this.canvas.height;
             this.ctx.beginPath();
@@ -748,15 +753,15 @@ class Game {
         const { player } = this.entities;
         const integrity = (player.integrity * 100).toFixed(0);
         const infractions = player.infractions;
-        
+
         document.getElementById('final-integrity').innerText = integrity + '%';
         document.getElementById('final-infractions').innerText = infractions;
-        
+
         let stars = '';
         if (integrity > 90 && infractions < 20) stars = '★★★';
         else if (integrity > 60 && infractions < 100) stars = '★★☆';
         else stars = '★☆☆';
-        
+
         document.getElementById('star-rating').innerText = stars;
     }
 
