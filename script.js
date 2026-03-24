@@ -203,16 +203,15 @@ class PlayerVehicle {
         const collisionType = map.checkCollision(nextX, nextY);
 
         if (collisionType === 'WALL') {
-            this.speed = -this.speed * 0.3; // Bate e volta um pouco
-            this.integrity -= 0.15;
+            this.speed = -this.speed * 0.5;
+            this.integrity -= 0.2;
             const flash = document.getElementById('damage-flash');
             if (flash) { flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 80); }
-            return 'WALL_HIT'; // NÃO atualiza this.x e this.y (trava)
+            return 'WALL_HIT';
         } else if (collisionType === 'SIDEWALK') {
-            return 'SIDEWALK_HIT'; 
+            this.speed *= 0.90; this.x = nextX; this.y = nextY;
         } else {
-            this.x = nextX;
-            this.y = nextY;
+            this.x = nextX; this.y = nextY;
         }
         return 'OK';
     }
@@ -284,18 +283,9 @@ class Game {
         if (this.state !== 'PLAYING') return;
 
         const res = this.player.update(this.input, this.map);
-        
-        if (res === 'WALL_HIT') {
-            this.sound.playBump();
-        } else if (res === 'SIDEWALK_HIT') {
-            // Se subir na calçada, perde o jogo.
-            document.getElementById('fail-reason').innerText = "Você subiu na calçada! Respeite os pedestres.";
-            this.changeState('GAME_OVER');
-            return;
-        }
+        if (res === 'WALL_HIT') this.sound.playBump();
 
         if (this.player.integrity <= 0) {
-            document.getElementById('fail-reason').innerText = "Carga destruída com as colisões!";
             this.changeState('GAME_OVER');
             return;
         }
