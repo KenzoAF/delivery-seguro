@@ -173,21 +173,23 @@ class CityMap {
             const c = Math.floor(nextX / this.tileSize);
             const r = Math.floor(nextY / this.tileSize);
 
-            // Subir na rua (travessia rápida) ou continuar na calçada
             if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
                 const tile = this.grid[r][c];
-                // Evitar Prédios (Tile 3)
-                if (tile === 3) {
-                    ped.vx *= -1; ped.vy *= -1; // Ricochete inteligente
+                
+                // Pedestres DEVEM ficar na calçada (2). 
+                // Se o próximo tile for rua (1), grama (0) ou prédio (3), eles batem e voltam.
+                if (tile !== 2) {
+                    ped.vx *= -1; 
+                    ped.vy *= -1; 
                 } else {
                     ped.x = nextX;
                     ped.y = nextY;
                 }
             } else {
-                ped.vx *= -1; ped.vy *= -1;
+                ped.vx *= -1; ped.vy *= -1; // Limites do mapa
             }
 
-            // Aleatoriedade sutil para simular caminhada
+            // Aleatoriedade sutil para simular caminhada (sempre na calçada)
             if (Math.random() < 0.02) {
                 ped.vx = (Math.random() - 0.5) * 1.5;
                 ped.vy = (Math.random() - 0.5) * 1.5;
