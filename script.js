@@ -237,21 +237,57 @@ class CityMap {
             }
         }
 
-        // --- DESENHAR SEMÁFOROS ---
+        // --- DESENHAR SEMÁFOROS (Estilo Imagem Cartoon) ---
         this.trafficLights.forEach(light => {
-            ctx.fillStyle = '#1e293b'; // Poste/Caixa
-            ctx.fillRect(light.x - 10, light.y - 40, 20, 80);
+            const width = 30;
+            const height = 70;
+            const rx = light.x - width/2;
+            const ry = light.y - height/2;
 
-            let color = '#ef4444'; // Vermelho
-            if (light.state === 'GREEN') color = '#22c55e';
-            if (light.state === 'YELLOW') color = '#eab308';
-
-            ctx.fillStyle = color;
-            ctx.shadowBlur = 15; ctx.shadowColor = color;
+            // 1. Abas Laterais (Sombra das luzes) - Opcional, mas dá detalhe
+            ctx.fillStyle = '#4b3f35';
             ctx.beginPath();
-            ctx.arc(light.x, light.y, 12, 0, Math.PI * 2);
+            ctx.arc(rx - 5, light.y, 10, Math.PI * 1.5, Math.PI * 0.5, true); ctx.fill(); 
+            ctx.beginPath();
+            ctx.arc(rx + width + 5, light.y, 10, Math.PI * 1.5, Math.PI * 0.5); ctx.fill();
+
+            // 2. Caixa do Semáforo com Bordas Arredondadas
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#1a0d00'; // Contorno Preto/Escuro
+            ctx.fillStyle = '#3e342a'; // Marrom da carcaça
+            
+            // Desenhar Retângulo Arredondado
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(rx, ry, width, height, 8);
+            } else {
+                ctx.rect(rx, ry, width, height); // Fallback
+            }
             ctx.fill();
-            ctx.shadowBlur = 0; // Reset
+            ctx.stroke();
+
+            // 3. Moldura das 3 lâmpadas internas
+            for (let i = 0; i < 3; i++) {
+                const ly = ry + 12 + i * 23;
+                ctx.strokeStyle = '#1a0d00';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(rx + 4, ly - 10, width - 8, 20);
+            }
+
+            // 4. Lâmpadas (Amarelo no topo como na imagem, Verde, Vermelho)
+            const radius = 8;
+            
+            // Lâmpada 1 (Yellow - Topo)
+            const yColor = light.state === 'YELLOW' ? '#facc15' : '#450a0a'; // Escurecido se apagado
+            this.drawLight(ctx, light.x, ry + 12, radius, yColor, light.state === 'YELLOW');
+
+            // Lâmpada 2 (Green - Meio)
+            const gColor = light.state === 'GREEN' ? '#22c55e' : '#052c1e';
+            this.drawLight(ctx, light.x, ry + 35, radius, gColor, light.state === 'GREEN');
+
+            // Lâmpada 3 (Red - Base)
+            const rColor = light.state === 'RED' ? '#ef4444' : '#450101';
+            this.drawLight(ctx, light.x, ry + 58, radius, rColor, light.state === 'RED');
         });
 
         // --- DESENHAR PEDESTRES ---
