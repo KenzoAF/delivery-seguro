@@ -410,7 +410,9 @@ class Game {
         if (newState === 'PLAYING') document.getElementById('hud').classList.remove('hidden');
         if (newState === 'GAME_OVER') {
             document.getElementById('game-over-screen').classList.remove('hidden');
-            document.getElementById('fail-reason').innerText = "Carga destruída com as colisões!";
+            if (!document.getElementById('fail-reason').innerText) {
+                document.getElementById('fail-reason').innerText = "Cargo destroyed due to collisions!";
+            }
         }
         if (newState === 'SUCCESS') document.getElementById('success-screen').classList.remove('hidden');
     }
@@ -418,7 +420,6 @@ class Game {
     update() {
         if (this.state !== 'PLAYING') return;
 
-        // Atualizar lógica do mapa (semáforos)
         if (this.map.update) this.map.update();
 
         const res = this.player.update(this.input, this.map);
@@ -426,28 +427,25 @@ class Game {
         if (res === 'WALL_HIT') {
             this.sound.playBump();
         } else if (res === 'SIDEWALK_HIT') {
-            document.getElementById('fail-reason').innerText = "Você subiu na calçada! Respeite os pedestres.";
+            document.getElementById('fail-reason').innerText = "You drove on the sidewalk! Respect pedestrians.";
             this.changeState('GAME_OVER');
             return;
         }
 
-        // --- COLISÃO COM PEDESTRES (FALHA CRÍTICA) ---
         if (this.map.checkPedestrianCollision && this.map.checkPedestrianCollision(this.player.x, this.player.y, 12)) {
-            document.getElementById('fail-reason').innerText = "ATROPELAMENTO! Você falhou na missão de segurança.";
+            document.getElementById('fail-reason').innerText = "ACCIDENT! You hit a pedestrian.";
             this.changeState('GAME_OVER');
             return;
         }
 
-        // Checar avanço de sinal vermelho
         if (this.map.checkTrafficLightViolation && this.map.checkTrafficLightViolation(this.player.x, this.player.y)) {
-            // Penalidade: reduzir integridade ou exibir alerta
-            this.player.integrity -= 0.005; // Pequeno dano por infração por frame
+            this.player.integrity -= 0.005; 
             const flash = document.getElementById('damage-flash');
             if (flash) { flash.style.opacity = '0.4'; setTimeout(() => flash.style.opacity = '0', 50); }
         }
 
         if (this.player.integrity <= 0) {
-            document.getElementById('fail-reason').innerText = "Carga destruída com as colisões ou infrações!";
+            document.getElementById('fail-reason').innerText = "Parcel destroyed with collisions or fines!";
             this.changeState('GAME_OVER');
             return;
         }

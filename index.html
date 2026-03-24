@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Safe Delivery - Simulador de condução urbana em perspectiva top-down focado em segurança viária e trânsito realista.">
-    <meta name="keywords" content="Safe Delivery, Jogo de Trânsito, Simulador de Condução, Top-down Driving, Entrega Segura, GitHub Pages">
+    <meta name="description" content="Safe Delivery - Top-down urban driving simulator focused on traffic safety and realism.">
+    <meta name="keywords" content="Safe Delivery, Traffic Game, Driving Simulator, Top-down Driving, Safe Parcel, GitHub Pages">
     <meta name="author" content="Antigravity AI">
     
     <!-- Open Graph for GitHub Pages visibility -->
-    <meta property="og:title" content="Safe Delivery | Entrega Segura">
-    <meta property="og:description" content="Transporte pacotes valiosos em uma cidade vibrante onde a segurança vem antes da pressa.">
+    <meta property="og:title" content="Safe Delivery | Drive Safe">
+    <meta property="og:description" content="Transport valuable parcels in a vibrant city where safety comes before haste.">
     <meta property="og:type" content="website">
     
-    <title>Safe Delivery | Entrega Segura</title>
+    <title>Safe Delivery | Drive Safe</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,18 +21,18 @@
 </head>
 <body>
     <div id="game-container">
-        <!-- Efeitos Visuais -->
+        <!-- Visual Effects -->
         <div id="damage-flash"></div>
         <div id="rain-overlay" class="hidden"></div>
         
-        <!-- Canvas do Jogo -->
+        <!-- Game Canvas -->
         <canvas id="gameCanvas"></canvas>
 
-        <!-- HUD (Interface em Jogo) -->
+        <!-- HUD (In-Game Interface) -->
         <div id="hud" class="hidden">
             <div class="hud-top">
                 <div class="integrity-container">
-                    <span class="label">INTEGRIDADE DO PACOTE</span>
+                    <span class="label">PARCEL INTEGRITY</span>
                     <div class="bar-bg">
                         <div id="integrity-bar" style="width: 100%;"></div>
                     </div>
@@ -40,17 +40,17 @@
             </div>
             
             <div class="hud-center">
-                <div id="traffic-warning" class="warning-text hidden">SINAL VERMELHO!</div>
+                <div id="traffic-warning" class="warning-text hidden">RED LIGHT!</div>
             </div>
             
             <div class="hud-bottom">
                 <div class="stat-box">
-                    <span class="label">TEMPO</span>
+                    <span class="label">TIME</span>
                     <span id="timer-val" class="value">00:00</span>
                 </div>
                 
                 <div class="stat-box speedometer-box">
-                    <span class="label">VELOCIDADE</span>
+                    <span class="label">SPEED</span>
                     <div class="speed-display">
                         <span id="speed-val" class="value">0</span>
                         <span class="unit">km/h</span>
@@ -59,48 +59,48 @@
             </div>
         </div>
 
-        <!-- Telas de Menu e Estados -->
+        <!-- Menu for States -->
         <div id="ui-layer">
-            <!-- Menu Principal -->
+            <!-- Main Menu -->
             <div id="menu-screen" class="screen">
                 <div class="logo">
                     <span class="icon">🚚</span>
                     <h1>SAFE<span>DELIVERY</span></h1>
                 </div>
-                <p class="subtitle">A precisão é o seu combustível.</p>
+                <p class="subtitle">Precision is your fuel.</p>
                 <div class="menu-actions">
-                    <button id="start-btn" class="primary-btn">INICIAR ENTREGA</button>
-                    <button id="tutorial-btn" class="secondary-btn">COMO JOGAR</button>
+                    <button id="start-btn" class="primary-btn">START DELIVERY</button>
+                    <button id="tutorial-btn" class="secondary-btn">HOW TO PLAY</button>
                 </div>
-                <div class="credits">Desenvolvido com Antigravity</div>
+                <div class="credits">Developed with Antigravity</div>
             </div>
 
             <!-- Tutorial -->
             <div id="tutorial-screen" class="screen hidden">
-                <h2>INSTRUÇÕES</h2>
+                <h2>INSTRUCTIONS</h2>
                 <div class="tutorial-grid">
                     <div class="card">
                         <span class="keys">WASD</span>
-                        <p>Acelerar, Virar e Ré</p>
+                        <p>Accelerate, Turn & Reverse</p>
                     </div>
                     <div class="card">
-                        <span class="keys">ESPAÇO</span>
-                        <p>Freio de Mão</p>
+                        <span class="keys">SPACE</span>
+                        <p>Handbrake</p>
                     </div>
                 </div>
                 <ul class="rules">
-                    <li><span class="bullet">✓</span> Mantenha o veículo estável em curvas rápidas.</li>
-                    <li><span class="bullet">✓</span> Respeite os semáforos (multas reduzem pontos).</li>
-                    <li><span class="bullet">✓</span> Pare para pedestres nas faixas.</li>
-                    <li><span class="bullet">!</span> Velocidade extrema prejudica a carga.</li>
+                    <li><span class="bullet">✓</span> Keep vehicle steady in sharp turns.</li>
+                    <li><span class="bullet">✓</span> Respect traffic lights (fines reduce score).</li>
+                    <li><span class="bullet">✓</span> Stop for pedestrians at crosswalks.</li>
+                    <li><span class="bullet">!</span> Extreme speed damages the cargo.</li>
                 </ul>
-                <button id="back-to-menu-btn" class="secondary-btn">VOLTAR AO MENU</button>
+                <button id="back-to-menu-btn" class="secondary-btn">BACK TO MENU</button>
             </div>
 
             <!-- Level Start -->
             <div id="level-start-screen" class="screen hidden">
-                <h2 id="level-title">CARREGANDO...</h2>
-                <p id="level-desc">Prepare seu veículo.</p>
+                <h2 id="level-title">LOADING...</h2>
+                <p id="level-desc">Prepare your vehicle.</p>
                 <div class="countdown-container">
                     <div class="countdown" id="start-countdown">3</div>
                 </div>
@@ -109,35 +109,37 @@
             <!-- Game Over -->
             <div id="game-over-screen" class="screen hidden">
                 <div class="fail-icon">⚠️</div>
-                <h2 class="danger">ENTREGA INTERROMPIDA</h2>
-                <p id="fail-reason">Protocolo de segurança violado.</p>
+                <h2 class="danger">DELIVERY FAILED</h2>
+                <p id="fail-reason">Safety protocol violated.</p>
                 <div class="stats-summary" id="over-stats"></div>
-                <button id="restart-btn" class="primary-btn">TENTAR NOVAMENTE</button>
+                <button id="restart-btn" class="primary-btn">TRY AGAIN</button>
             </div>
 
             <!-- Success -->
             <div id="success-screen" class="screen hidden">
                 <div class="success-icon">✨</div>
-                <h2 class="success">MISSÃO CUMPRIDA!</h2>
+                <h2 class="success">MISSION COMPLETE!</h2>
                 <div class="stars" id="star-rating">
                     <span>★</span><span>★</span><span>★</span>
                 </div>
                 <div class="results">
                     <div class="res-item">
-                        <span class="res-label">Integridade:</span>
+                        <span class="res-label">Integrity:</span>
                         <span id="final-integrity" class="res-value">100%</span>
                     </div>
                     <div class="res-item">
-                        <span class="res-label">Multas:</span>
+                        <span class="res-label">Fines:</span>
                         <span id="final-infractions" class="res-value">0</span>
                     </div>
                 </div>
-                <button id="continue-btn" class="primary-btn">PRÓXIMA ENTREGA</button>
+                <button id="continue-btn" class="primary-btn">NEXT DELIVERY</button>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
     <script src="script.js" type="module"></script>
+</body>
+</html>.js" type="module"></script>
 </body>
 </html>
