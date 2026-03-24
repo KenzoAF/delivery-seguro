@@ -113,37 +113,86 @@ class CityMap {
         this.trafficLights = [];
         this.lightTimer = 0;
         this.initTrafficLights();
+
+        // --- SISTEMA DE PEDESTRES ---
+        this.pedestrians = [];
+        this.initPedestrians();
     }
 
     initTrafficLights() {
-        // Adicionar semáforos nos principais cruzamentos
-        // Cruzamento 1: c=7, r=3-4
         this.trafficLights.push({ x: 7 * this.tileSize, y: 3 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
         this.trafficLights.push({ x: 8 * this.tileSize + 64, y: 3 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
-
-        // Cruzamento 2: c=23, r=3-4
         this.trafficLights.push({ x: 23 * this.tileSize, y: 3 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
         this.trafficLights.push({ x: 24 * this.tileSize + 64, y: 3 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
-
-        // Cruzamento 3: c=7, r=15-16
         this.trafficLights.push({ x: 7 * this.tileSize, y: 15 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
         this.trafficLights.push({ x: 8 * this.tileSize + 64, y: 15 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
     }
 
+    initPedestrians() {
+        // Criar pedestres em áreas de calçadas
+        for (let i = 0; i < 20; i++) {
+            let placed = false;
+            while (!placed) {
+                const r = Math.floor(Math.random() * this.rows);
+                const c = Math.floor(Math.random() * this.cols);
+                if (this.grid[r][c] === 2) { // CALÇADA
+                    this.pedestrians.push({
+                        x: c * this.tileSize + this.tileSize/2,
+                        y: r * this.tileSize + this.tileSize/2,
+                        vx: (Math.random() - 0.5) * 1.5,
+                        vy: (Math.random() - 0.5) * 1.5,
+                        size: 8,
+                        color: `hsl(${Math.random() * 360}, 80%, 60%)`
+                    });
+                    placed = true;
+                }
+            }
+        }
+    }
+
     update() {
         this.lightTimer++;
-        if (this.lightTimer > 300) { // Alterna a cada 5 segundos (60*5)
+        if (this.lightTimer > 300) { 
             this.lightTimer = 0;
             this.trafficLights.forEach(light => {
                 if (light.state === 'GREEN') light.state = 'YELLOW';
                 else if (light.state === 'YELLOW') light.state = 'RED';
                 else if (light.state === 'RED') light.state = 'GREEN';
             });
-        } else if (this.lightTimer === 240) { // Amarelo por 1 segundo antes do Vermelho
+        } else if (this.lightTimer === 240) { 
             this.trafficLights.forEach(light => {
                 if (light.state === 'GREEN') light.state = 'YELLOW';
             });
         }
+
+        // --- ATUALIZAR PEDESTRES ---
+        this.pedestrians.forEach(ped => {
+            const nextX = ped.x + ped.vx;
+            const nextY = ped.y + ped.vy;
+
+            const c = Math.floor(nextX / this.tileSize);
+            const r = Math.floor(nextY / this.tileSize);
+
+            // Subir na rua (travessia rápida) ou continuar na calçada
+            if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
+                const tile = this.grid[r][c];
+                // Evitar Prédios (Tile 3)
+                if (tile === 3) {
+                    ped.vx *= -1; ped.vy *= -1; // Ricochete inteligente
+                } else {
+                    ped.x = nextX;
+                    ped.y = nextY;
+                }
+            } else {
+                ped.vx *= -1; ped.vy *= -1;
+            }
+
+            // Aleatoriedade sutil para simular caminhada
+            if (Math.random() < 0.02) {
+                ped.vx = (Math.random() - 0.5) * 1.5;
+                ped.vy = (Math.random() - 0.5) * 1.5;
+            }
+        });
     }
 
     draw(ctx) {
@@ -202,6 +251,20 @@ class CityMap {
             ctx.fill();
             ctx.shadowBlur = 0; // Reset
         });
+
+        // --- DESENHAR PEDESTRES ---
+        this.pedestrians.forEach(ped => {
+            ctx.fillStyle = ped.color;
+            ctx.beginPath();
+            ctx.arc(ped.x, ped.y, ped.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Cabeça/Sombra estilizada (efeito Top-Down)
+            ctx.fillStyle = '#1e293b';
+            ctx.beginPath();
+            ctx.arc(ped.x, ped.y, ped.size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+        });
     }
 
     checkCollision(x, y) {
@@ -213,6 +276,16 @@ class CityMap {
         if (tile === 3) return 'WALL';
         if (tile === 2) return 'SIDEWALK';
         return 'ROAD';
+    }
+
+    checkPedestrianCollision(px, py, radius) {
+        for (let ped of this.pedestrians) {
+            const dist = Math.hypot(px - ped.x, py - ped.y);
+            if (dist < radius + ped.size) {
+                return true; // Atropelamento!
+            }
+        }
+        return false;
     }
     
     checkTrafficLightViolation(x, y) {
@@ -352,6 +425,13 @@ class Game {
             this.sound.playBump();
         } else if (res === 'SIDEWALK_HIT') {
             document.getElementById('fail-reason').innerText = "Você subiu na calçada! Respeite os pedestres.";
+            this.changeState('GAME_OVER');
+            return;
+        }
+
+        // --- COLISÃO COM PEDESTRES (FALHA CRÍTICA) ---
+        if (this.map.checkPedestrianCollision && this.map.checkPedestrianCollision(this.player.x, this.player.y, 12)) {
+            document.getElementById('fail-reason').innerText = "ATROPELAMENTO! Você falhou na missão de segurança.";
             this.changeState('GAME_OVER');
             return;
         }
