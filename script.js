@@ -52,6 +52,96 @@ class Input {
 }
 
 /**
+ * Sintetizador de Efeitos Sonoros
+ */
+class SoundSynth {
+    constructor() { this.ctx = null; }
+
+    init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    playBump() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(10, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+    }
+
+    playInfraction() {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(660, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+        osc.start(); osc.stop(this.ctx.currentTime + 0.2);
+    }
+}
+
+/**
+ * Mapa da Cidade baseado em Grid
+ */
+class CityMap {
+    constructor() {
+        this.tileSize = CONFIG.TILE_SIZE;
+        // 0: Grama, 1: Asfalto, 2: Calçada, 3: Prédio/Muro
+        this.grid = [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ];
+    }
+
+    draw(ctx) {
+        for (let r = 0; r < this.grid.length; r++) {
+            for (let c = 0; c < this.grid[r].length; c++) {
+                const tile = this.grid[r][c];
+                const tx = c * this.tileSize;
+                const ty = r * this.tileSize;
+
+                if (tile === 0) ctx.fillStyle = '#064e3b';
+                else if (tile === 1) ctx.fillStyle = '#1e293b';
+                else if (tile === 2) ctx.fillStyle = '#64748b';
+                else ctx.fillStyle = '#0f172a';
+
+                ctx.fillRect(tx, ty, this.tileSize, this.tileSize);
+
+                if (tile === 1 && r === 2) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                    ctx.lineWidth = 4;
+                    ctx.setLineDash([40, 40]);
+                    ctx.beginPath();
+                    ctx.moveTo(tx, ty + this.tileSize);
+                    ctx.lineTo(tx + this.tileSize, ty + this.tileSize);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            }
+        }
+    }
+
+    checkCollision(x, y) {
+        const c = Math.floor(x / this.tileSize);
+        const r = Math.floor(y / this.tileSize);
+        if (r < 0 || r >= this.grid.length || c < 0 || c >= this.grid[0].length) return false;
+        return this.grid[r][c] === 3;
+    }
+}
+
+/**
  * Entidade do Veículo do Jogador
  */
 class PlayerVehicle {
@@ -75,7 +165,7 @@ class PlayerVehicle {
         const speedRatio = Math.abs(this.speed) / CONFIG.CAR.MAX_SPEED;
 
         // 1. Aceleração e Frenagem (Torque Linear)
-        if (input.isPressed('KeyW')) {
+        if (input.isPressed('KeyW')) { // Controle manual de volta
             // Aceleração progressiva (menos torque em velocidades altas)
             const torque = CONFIG.CAR.TORQUE * (1 - (speedRatio * 0.5));
             this.speed += torque * weatherMod.friction;
@@ -386,6 +476,7 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         this.input = new Input();
+        this.sound = new SoundSynth();
         
         this.state = 'MENU';
         this.camera = { x: 0, y: 0 };
@@ -411,7 +502,14 @@ class Game {
     }
 
     bindUI() {
-        document.getElementById('start-btn').onclick = () => this.changeState('LEVEL_START');
+        const startBtn = document.getElementById('start-btn');
+        startBtn.onclick = () => {
+            if (startBtn.disabled) return;
+            startBtn.disabled = true;
+            this.sound.init(); // Ativa o áudio com interação
+            this.changeState('LEVEL_START');
+        };
+        
         document.getElementById('tutorial-btn').onclick = () => this.changeState('TUTORIAL');
         document.getElementById('back-to-menu-btn').onclick = () => this.changeState('MENU');
         document.getElementById('restart-btn').onclick = () => location.reload();
@@ -419,6 +517,7 @@ class Game {
     }
 
     changeState(newState) {
+        console.log("MUDANÇA DE ESTADO:", newState);
         this.state = newState;
         document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
         document.getElementById('hud').classList.add('hidden');
@@ -437,6 +536,7 @@ class Game {
                 break;
             case 'PLAYING':
                 document.getElementById('hud').classList.remove('hidden');
+                this.startTime = Date.now(); // Inicia o cronômetro da entrega
                 break;
             case 'GAME_OVER':
                 document.getElementById('game-over-screen').classList.remove('hidden');
@@ -450,6 +550,7 @@ class Game {
 
     loadLevel(idx) {
         // Reset entidades
+        this.entities.map = new CityMap();
         this.entities.player = new PlayerVehicle(200, 400);
         this.entities.npcs = [
             new NPCVehicle([{x: -200, y: 350}, {x: 3000, y: 350}], 2),
@@ -479,7 +580,9 @@ class Game {
         el.innerText = count;
         const timer = setInterval(() => {
             count--;
+            console.log("Contagem regressiva:", count);
             if (count <= 0) {
+                console.log("Contagem zerou, iniciando jogo...");
                 clearInterval(timer);
                 this.changeState('PLAYING');
             } else {
@@ -496,12 +599,23 @@ class Game {
         // 1. Atualizar Player
         player.update(this.input, this.weather);
 
+        // Colisão com cenário (Map)
+        if (this.entities.map && this.entities.map.checkCollision(player.x, player.y)) {
+            player.speed *= -0.5; // Recuo por batida
+            player.applyPackageDamage(0.05); // Dano à carga
+            if (this.sound) this.sound.playBump(); // Som de batida
+            // Afastar um pouco para não travar na parede
+            player.x -= player.velocity.x * 1.5;
+            player.y -= player.velocity.y * 1.5;
+        }
+
         // 2. Atualizar IA e Trânsito
         npcs.forEach(n => n.update(player, lights));
         lights.forEach(l => {
             l.update();
             if (l.checkViolation(player)) {
                 player.infractions++;
+                if (this.sound) this.sound.playInfraction(); // Som de multa
                 document.getElementById('traffic-warning').classList.remove('hidden');
                 setTimeout(() => document.getElementById('traffic-warning').classList.add('hidden'), 2000);
             }
@@ -549,6 +663,15 @@ class Game {
         const { player } = this.entities;
         const intBar = document.getElementById('integrity-bar');
         const speedVal = document.getElementById('speed-val');
+        const timerVal = document.getElementById('timer-val');
+        
+        // Atualizar Cronômetro
+        if (this.startTime) {
+            const elapsed = Date.now() - this.startTime;
+            const minutes = Math.floor(elapsed / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
+            timerVal.innerText = `${minutes}:${seconds}`;
+        }
         
         const percentage = (player.integrity * 100).toFixed(0);
         intBar.style.width = percentage + '%';
@@ -572,14 +695,14 @@ class Game {
         this.ctx.save();
         this.ctx.translate(-this.camera.x, -this.camera.y);
 
-        // Renderizar Ambiente (Estrada Infinita Básica)
-        this.drawEnvironment();
+        // Renderizar Ambiente (Tile Map)
+        if (this.entities.map) this.entities.map.draw(this.ctx);
 
         // Renderizar Entidades
-        this.entities.lights.forEach(l => l.draw(this.ctx));
-        this.entities.pedestrians.forEach(p => p.draw(this.ctx));
-        this.entities.npcs.forEach(n => n.draw(this.ctx));
-        this.entities.player.draw(this.ctx);
+        if (this.entities.lights) this.entities.lights.forEach(l => l.draw(this.ctx));
+        if (this.entities.pedestrians) this.entities.pedestrians.forEach(p => p.draw(this.ctx));
+        if (this.entities.npcs) this.entities.npcs.forEach(n => n.draw(this.ctx));
+        if (this.entities.player) this.entities.player.draw(this.ctx);
 
         this.ctx.restore();
 
@@ -638,8 +761,12 @@ class Game {
     }
 
     loop() {
-        this.update();
-        this.draw();
+        try {
+            this.update();
+            this.draw();
+        } catch (e) {
+            console.error("ERRO FATAL NO LOOP:", e);
+        }
         requestAnimationFrame(() => this.loop());
     }
 }
