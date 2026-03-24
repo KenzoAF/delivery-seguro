@@ -256,9 +256,9 @@ class Game {
     bindUI() {
         document.getElementById('start-btn').onclick = () => {
             this.sound.init();
-            // Start em uma rua: x=1000, y=500
             this.player = new PlayerVehicle(1024, 512); 
             this.player.integrity = 1.0;
+            this.startTime = Date.now(); // Salvar o tempo de início
             this.changeState('PLAYING');
         };
         document.getElementById('restart-btn').onclick = () => this.changeState('MENU');
@@ -290,23 +290,18 @@ class Game {
             return;
         }
 
-        // Condição de Vitória (Alcançar o Ponto de Entrega)
         const distToDelivery = Math.hypot(this.player.x - this.delivery.x, this.player.y - this.delivery.y);
         if (distToDelivery < this.delivery.radius) {
             this.changeState('SUCCESS');
         }
 
-        // 1. Câmera Dinâmica (Zoom Lerp)
         const speedRatio = Math.abs(this.player.speed) / CONFIG.CAR.MAX_SPEED;
         const targetZoom = CONFIG.CAMERA.ZOOM_MAX - (CONFIG.CAMERA.ZOOM_MAX - CONFIG.CAMERA.ZOOM_MIN) * speedRatio;
         this.camera.zoom += (targetZoom - this.camera.zoom) * 0.05;
 
-        // 2. Câmera Follow (Suave)
         this.camera.x += (this.player.x - this.camera.x) * CONFIG.CAMERA_SMOOTH;
         this.camera.y += (this.player.y - this.camera.y) * CONFIG.CAMERA_SMOOTH;
 
-        // 3. Travar Câmera nos limites (Clamping) para não exibir o vazio
-        // Limites mínimos e máximos da posição da câmera (ajustados pelo zoom)
         const halfWidth = (this.canvas.width / 2) / this.camera.zoom;
         const halfHeight = (this.canvas.height / 2) / this.camera.zoom;
 
@@ -321,6 +316,14 @@ class Game {
     updateHUD() {
         document.getElementById('integrity-bar').style.width = (this.player.integrity * 100) + '%';
         document.getElementById('speed-val').innerText = Math.floor(Math.abs(this.player.speed) * 15);
+
+        // ATUALIZAÇÃO DO CRONÔMETRO
+        if (this.startTime) {
+            const elapsed = Date.now() - this.startTime;
+            const minutes = Math.floor(elapsed / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
+            document.getElementById('timer-val').innerText = `${minutes}:${seconds}`;
+        }
     }
 
     draw() {
