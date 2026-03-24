@@ -76,20 +76,32 @@ class CityMap {
     constructor() {
         this.tileSize = CONFIG.TILE_SIZE;
         
-        // Grid 16x12 (2048x1536 pixels) - Quarteirões interativos
+        // Grid 32x24 (4096x3072 pixels) - Mapa Expandido
         this.grid = [
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
         ];
 
         this.rows = this.grid.length;
@@ -105,14 +117,13 @@ class CityMap {
                 const tx = c * this.tileSize;
                 const ty = r * this.tileSize;
 
-                if (tile === 0) ctx.fillStyle = '#14532d'; // Grama
-                else if (tile === 1) ctx.fillStyle = '#1e293b'; // Asfalto
-                else if (tile === 2) ctx.fillStyle = '#94a3b8'; // Calçada
-                else if (tile === 3) ctx.fillStyle = '#020617'; // Prédio
+                if (tile === 0) ctx.fillStyle = '#14532d';
+                else if (tile === 1) ctx.fillStyle = '#1e293b';
+                else if (tile === 2) ctx.fillStyle = '#94a3b8';
+                else if (tile === 3) ctx.fillStyle = '#020617';
 
                 ctx.fillRect(tx, ty, this.tileSize, this.tileSize);
 
-                // Relevo 3D Estilo GTA1 nos prédios
                 if (tile === 3) {
                     ctx.fillStyle = '#0f172a';
                     ctx.fillRect(tx + 12, ty + 12, this.tileSize - 24, this.tileSize - 24);
@@ -121,18 +132,18 @@ class CityMap {
                     ctx.strokeRect(tx + 12, ty + 12, this.tileSize - 24, this.tileSize - 24);
                 }
 
-                // Linhas de rua
+                // Linhas de rua coerentes (Ajustadas para os múltiplos cruzamentos)
                 if (tile === 1) {
                     ctx.strokeStyle = '#eab308';
                     ctx.lineWidth = 2;
-                    // Linha horizontal no meio das ruas horizontais (r=3,4,9,10)
-                    if (r === 3 && c % 1 === 0) {
+                    // Linhas horizontais (nas ruas horizontais r=3,4,9,10,15,16,21,22)
+                    if ((r === 3 || r === 9 || r === 15 || r === 21) && c % 1 === 0) {
                         ctx.setLineDash([20, 10]);
                         ctx.beginPath(); ctx.moveTo(tx, ty+this.tileSize); ctx.lineTo(tx+this.tileSize, ty+this.tileSize); ctx.stroke();
                         ctx.setLineDash([]);
                     }
-                    // Linha vertical no meio das ruas verticais (c=7,8)
-                    if (c === 7) {
+                    // Linhas verticais (nas colunas c=7, c=23)
+                    if (c === 7 || c === 23) {
                         ctx.setLineDash([20, 10]);
                         ctx.beginPath(); ctx.moveTo(tx+this.tileSize, ty); ctx.lineTo(tx+this.tileSize, ty+this.tileSize); ctx.stroke();
                         ctx.setLineDash([]);
@@ -145,10 +156,8 @@ class CityMap {
     checkCollision(x, y) {
         const c = Math.floor(x / this.tileSize);
         const r = Math.floor(y / this.tileSize);
-
-        // Fora do mapa
         if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return 'WALL';
-
+        
         const tile = this.grid[r][c];
         if (tile === 3) return 'WALL';
         if (tile === 2) return 'SIDEWALK';
@@ -156,9 +165,6 @@ class CityMap {
     }
 }
 
-/**
- * Entidade do Veículo
- */
 class PlayerVehicle {
     constructor(x, y) {
         this.x = x;
@@ -167,7 +173,6 @@ class PlayerVehicle {
         this.speed = 0;
         this.velocity = { x: 0, y: 0 };
         this.integrity = 1.0;
-
         this.width = CONFIG.CAR.WIDTH;
         this.height = CONFIG.CAR.HEIGHT;
         this.drift = 0;
@@ -175,78 +180,47 @@ class PlayerVehicle {
 
     update(input, map) {
         const speedRatio = Math.abs(this.speed) / CONFIG.CAR.MAX_SPEED;
-
-        // 1. Aceleração / Inércia
-        if (input.isPressed('KeyW')) {
-            this.speed += CONFIG.CAR.TORQUE;
-        } else if (input.isPressed('KeyS')) {
-            this.speed -= CONFIG.CAR.BRAKE;
-        } else {
-            this.speed *= CONFIG.CAR.FRICTION_AIR;
-            if (Math.abs(this.speed) < 0.05) this.speed = 0;
-        }
+        if (input.isPressed('KeyW')) { this.speed += CONFIG.CAR.TORQUE; }
+        else if (input.isPressed('KeyS')) { this.speed -= CONFIG.CAR.BRAKE; }
+        else { this.speed *= CONFIG.CAR.FRICTION_AIR; if (Math.abs(this.speed) < 0.05) this.speed = 0; }
 
         if (this.speed > CONFIG.CAR.MAX_SPEED) this.speed = CONFIG.CAR.MAX_SPEED;
         if (this.speed < -CONFIG.CAR.MAX_SPEED * 0.3) this.speed = -CONFIG.CAR.MAX_SPEED * 0.3;
 
-        // 2. Curvas Base dadas pelo raio de velocidade
         let turnPower = CONFIG.CAR.TURN_POWER_BASE / (1 + speedRatio * 1.5);
-
         if (input.isPressed('KeyA')) this.angle -= turnPower;
         if (input.isPressed('KeyD')) this.angle += turnPower;
 
-        // 3. Efeito Drift
-        if (speedRatio > 0.5 && (input.isPressed('KeyA') || input.isPressed('KeyD'))) {
-            this.drift += 0.015 * speedRatio;
-        }
+        if (speedRatio > 0.5 && (input.isPressed('KeyA') || input.isPressed('KeyD'))) { this.drift += 0.015 * speedRatio; }
         this.drift *= CONFIG.CAR.DRIFT_FACTOR;
 
-        // 4. Movimento e Colisões
         const moveAngle = this.angle + (this.drift * (input.isPressed('KeyA') ? -1 : 1));
         this.velocity.x = Math.cos(moveAngle) * this.speed;
         this.velocity.y = Math.sin(moveAngle) * this.speed;
 
         const nextX = this.x + this.velocity.x;
         const nextY = this.y + this.velocity.y;
-
         const collisionType = map.checkCollision(nextX, nextY);
 
         if (collisionType === 'WALL') {
-            this.speed = -this.speed * 0.5; // Ricochete
+            this.speed = -this.speed * 0.5;
             this.integrity -= 0.2;
             const flash = document.getElementById('damage-flash');
             if (flash) { flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 80); }
             return 'WALL_HIT';
         } else if (collisionType === 'SIDEWALK') {
-            this.speed *= 0.90; // Penalidade na calçada
-            this.x = nextX;
-            this.y = nextY;
+            this.speed *= 0.90; this.x = nextX; this.y = nextY;
         } else {
-            this.x = nextX;
-            this.y = nextY;
+            this.x = nextX; this.y = nextY;
         }
-
         return 'OK';
     }
 
     draw(ctx) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle);
-
-        // Chassi
-        ctx.fillStyle = '#1d4ed8';
-        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
-
-        // Parabrisas
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, -this.height / 2 + 2, 10, this.height - 4);
-
-        // Faróis
-        ctx.fillStyle = '#fef08a';
-        ctx.fillRect(this.width / 2 - 4, -this.height / 2 + 3, 4, 3);
-        ctx.fillRect(this.width / 2 - 4, this.height / 2 - 6, 4, 3);
-
+        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+        ctx.fillStyle = '#1d4ed8'; ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        ctx.fillStyle = '#000000'; ctx.fillRect(0, -this.height / 2 + 2, 10, this.height - 4);
+        ctx.fillStyle = '#fef08a'; ctx.fillRect(this.width / 2 - 4, -this.height / 2 + 3, 4, 3); ctx.fillRect(this.width / 2 - 4, this.height / 2 - 6, 4, 3);
         ctx.restore();
     }
 }
@@ -266,8 +240,8 @@ class Game {
         this.player = null;
         this.camera = { x: 0, y: 0, zoom: 1.0 };
         
-        // Coordenadas da Entrega (Sorteado fora dos prédios)
-        this.delivery = { x: 1400, y: 450, radius: 40 }; 
+        // Coordenadas da Entrega Redirecionadas (Extremidade Inferior)
+        this.delivery = { x: 3072, y: 2700, radius: 45 }; 
 
         this.init();
         this.loop();
