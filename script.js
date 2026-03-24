@@ -108,6 +108,42 @@ class CityMap {
         this.cols = this.grid[0].length;
         this.worldWidth = this.cols * this.tileSize;
         this.worldHeight = this.rows * this.tileSize;
+
+        // --- SISTEMA DE SEMÁFOROS ---
+        this.trafficLights = [];
+        this.lightTimer = 0;
+        this.initTrafficLights();
+    }
+
+    initTrafficLights() {
+        // Adicionar semáforos nos principais cruzamentos
+        // Cruzamento 1: c=7, r=3-4
+        this.trafficLights.push({ x: 7 * this.tileSize, y: 3 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
+        this.trafficLights.push({ x: 8 * this.tileSize + 64, y: 3 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
+
+        // Cruzamento 2: c=23, r=3-4
+        this.trafficLights.push({ x: 23 * this.tileSize, y: 3 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
+        this.trafficLights.push({ x: 24 * this.tileSize + 64, y: 3 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
+
+        // Cruzamento 3: c=7, r=15-16
+        this.trafficLights.push({ x: 7 * this.tileSize, y: 15 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
+        this.trafficLights.push({ x: 8 * this.tileSize + 64, y: 15 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
+    }
+
+    update() {
+        this.lightTimer++;
+        if (this.lightTimer > 300) { // Alterna a cada 5 segundos (60*5)
+            this.lightTimer = 0;
+            this.trafficLights.forEach(light => {
+                if (light.state === 'GREEN') light.state = 'YELLOW';
+                else if (light.state === 'YELLOW') light.state = 'RED';
+                else if (light.state === 'RED') light.state = 'GREEN';
+            });
+        } else if (this.lightTimer === 240) { // Amarelo por 1 segundo antes do Vermelho
+            this.trafficLights.forEach(light => {
+                if (light.state === 'GREEN') light.state = 'YELLOW';
+            });
+        }
     }
 
     draw(ctx) {
@@ -132,17 +168,15 @@ class CityMap {
                     ctx.strokeRect(tx + 12, ty + 12, this.tileSize - 24, this.tileSize - 24);
                 }
 
-                // Linhas de rua coerentes (Ajustadas para os múltiplos cruzamentos)
+                // Linhas de rua
                 if (tile === 1) {
                     ctx.strokeStyle = '#eab308';
                     ctx.lineWidth = 2;
-                    // Linhas horizontais (nas ruas horizontais r=3,4,9,10,15,16,21,22)
                     if ((r === 3 || r === 9 || r === 15 || r === 21) && c % 1 === 0) {
                         ctx.setLineDash([20, 10]);
                         ctx.beginPath(); ctx.moveTo(tx, ty+this.tileSize); ctx.lineTo(tx+this.tileSize, ty+this.tileSize); ctx.stroke();
                         ctx.setLineDash([]);
                     }
-                    // Linhas verticais (nas colunas c=7, c=23)
                     if (c === 7 || c === 23) {
                         ctx.setLineDash([20, 10]);
                         ctx.beginPath(); ctx.moveTo(tx+this.tileSize, ty); ctx.lineTo(tx+this.tileSize, ty+this.tileSize); ctx.stroke();
@@ -151,6 +185,23 @@ class CityMap {
                 }
             }
         }
+
+        // --- DESENHAR SEMÁFOROS ---
+        this.trafficLights.forEach(light => {
+            ctx.fillStyle = '#1e293b'; // Poste/Caixa
+            ctx.fillRect(light.x - 10, light.y - 40, 20, 80);
+
+            let color = '#ef4444'; // Vermelho
+            if (light.state === 'GREEN') color = '#22c55e';
+            if (light.state === 'YELLOW') color = '#eab308';
+
+            ctx.fillStyle = color;
+            ctx.shadowBlur = 15; ctx.shadowColor = color;
+            ctx.beginPath();
+            ctx.arc(light.x, light.y, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset
+        });
     }
 
     checkCollision(x, y) {
@@ -162,6 +213,16 @@ class CityMap {
         if (tile === 3) return 'WALL';
         if (tile === 2) return 'SIDEWALK';
         return 'ROAD';
+    }
+    
+    checkTrafficLightViolation(x, y) {
+        for (let light of this.trafficLights) {
+            if (light.state === 'RED') {
+                const dist = Math.hypot(x - light.x, y - light.y);
+                if (dist < 40) return true; // Vioulo
+            }
+        }
+        return false;
     }
 }
 
@@ -282,10 +343,29 @@ class Game {
     update() {
         if (this.state !== 'PLAYING') return;
 
+        // Atualizar lógica do mapa (semáforos)
+        if (this.map.update) this.map.update();
+
         const res = this.player.update(this.input, this.map);
-        if (res === 'WALL_HIT') this.sound.playBump();
+        
+        if (res === 'WALL_HIT') {
+            this.sound.playBump();
+        } else if (res === 'SIDEWALK_HIT') {
+            document.getElementById('fail-reason').innerText = "Você subiu na calçada! Respeite os pedestres.";
+            this.changeState('GAME_OVER');
+            return;
+        }
+
+        // Checar avanço de sinal vermelho
+        if (this.map.checkTrafficLightViolation && this.map.checkTrafficLightViolation(this.player.x, this.player.y)) {
+            // Penalidade: reduzir integridade ou exibir alerta
+            this.player.integrity -= 0.005; // Pequeno dano por infração por frame
+            const flash = document.getElementById('damage-flash');
+            if (flash) { flash.style.opacity = '0.4'; setTimeout(() => flash.style.opacity = '0', 50); }
+        }
 
         if (this.player.integrity <= 0) {
+            document.getElementById('fail-reason').innerText = "Carga destruída com as colisões ou infrações!";
             this.changeState('GAME_OVER');
             return;
         }
