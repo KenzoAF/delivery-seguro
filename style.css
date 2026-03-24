@@ -210,13 +210,10 @@ body {
     text-align: center;
     padding: 40px;
     z-index: 100;
-    transition: var(--smooth);
 }
 
 .hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: scale(1.1);
+    display: none !important;
 }
 
 /* Logo Design */
