@@ -317,10 +317,14 @@ class Game3D {
                 
                 // Pedestres
                 if (tile === 2 && Math.random() < 0.1) {
+                    const walkAngle = Math.random() * Math.PI * 2;
                     this.pedestrians.push({
                         x: x + (Math.random()-0.5)*ts,
                         z: z + (Math.random()-0.5)*ts,
-                        mesh: null 
+                        walkAngle: walkAngle,
+                        walkSpeed: 0.01 + Math.random() * 0.015,
+                        mesh: null,
+                        hit: false
                     });
                 }
             }
@@ -491,7 +495,7 @@ class Game3D {
         this.physics = {
             x: spawnX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2,
             z: spawnZ * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE/2,
-            angle: 0,
+            angle: Math.PI,
             speed: 0,
             drift: 0,
             stats: stats
@@ -1396,6 +1400,42 @@ class Game3D {
             const tv = document.getElementById('timer-val');
             if(tv) tv.innerText = `${m}:${s}`;
         }
+
+        // --- PEDESTRES CAMINHANDO ---
+        const ts = CONFIG.TILE_SIZE;
+        const map = MAPS[this.selectedMapIdx];
+        this.pedestrians.forEach(ped => {
+            if(ped.hit || !ped.mesh) return;
+            
+            // Mover na direção atual
+            const nx = ped.x + Math.sin(ped.walkAngle) * ped.walkSpeed;
+            const nz = ped.z + Math.cos(ped.walkAngle) * ped.walkSpeed;
+            
+            // Verificar se o próximo tile é calçada (ID 2)
+            const tileC = Math.floor(nx / ts);
+            const tileR = Math.floor(nz / ts);
+            const nextTile = (tileR >= 0 && tileR < map.length && tileC >= 0 && tileC < map[0].length) ? map[tileR][tileC] : 3;
+            
+            if(nextTile === 2) {
+                ped.x = nx;
+                ped.z = nz;
+            } else {
+                // Virar para outra direção aleatória
+                ped.walkAngle += Math.PI * (0.5 + Math.random());
+            }
+            
+            // Animação de balanço ao caminhar
+            const time = Date.now() * 0.005;
+            ped.mesh.position.set(ped.x, 0, ped.z);
+            ped.mesh.rotation.y = ped.walkAngle;
+            
+            // Balanço suave do corpo ao andar
+            ped.mesh.children.forEach(c => {
+                if(c.position.y > 1.5) return; // Ignora cabeça
+                if(c.position.x < -0.2) c.rotation.x = Math.sin(time * 3) * 0.2;
+                else if(c.position.x > 0.2) c.rotation.x = -Math.sin(time * 3) * 0.2;
+            });
+        });
     }
 
     drawMinimap() {
