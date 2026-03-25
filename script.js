@@ -154,7 +154,8 @@ class Game3D {
         this.audio = new AudioEngine(this.camera);
         this.initDOM();
         
-        requestAnimationFrame(() => this.loop());
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
     }
 
     initThree() {
