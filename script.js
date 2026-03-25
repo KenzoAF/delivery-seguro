@@ -147,6 +147,9 @@ class Game3D {
         this.trafficLights = [];
         this.pedestrians = [];
 
+        this.minimapCanvas = document.getElementById('minimap-canvas');
+        this.minimapCtx = this.minimapCanvas ? this.minimapCanvas.getContext('2d') : null;
+
         this.initThree();
         this.audio = new AudioEngine(this.camera);
         this.initDOM();
@@ -669,12 +672,106 @@ class Game3D {
         }
     }
 
+    drawMinimap() {
+        if (!this.minimapCtx || !this.physics) return;
+        const ctx = this.minimapCtx;
+        const p = this.physics;
+        const map = MAPS[this.selectedMapIdx];
+        const ts = CONFIG.TILE_SIZE;
+        const size = 200;
+        const center = size / 2;
+        const zoom = 4; // Zoom level (pixels per meter roughly)
+
+        ctx.clearRect(0, 0, size, size);
+
+        // Clip circular
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(center, center, center - 4, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Rotate map around player
+        ctx.translate(center, center);
+        ctx.rotate(p.angle); // Map rotates with player angle to keep player facing up
+        
+        // Draw Map Tiles (Optimization: only draw visible tiles area)
+        const radius = (center / zoom) + 10;
+        const mapRowStart = Math.max(0, Math.floor((p.z / ts) - (radius / ts)));
+        const mapRowEnd = Math.min(map.length, Math.ceil((p.z / ts) + (radius / ts)));
+        const mapColStart = Math.max(0, Math.floor((p.x / ts) - (radius / ts)));
+        const mapColEnd = Math.min(map[0].length, Math.ceil((p.x / ts) + (radius / ts)));
+
+        for (let r = mapRowStart; r < mapRowEnd; r++) {
+            for (let c = mapColStart; c < mapColEnd; c++) {
+                const tile = map[r][c];
+                if (tile === 1 || tile === 2 || tile === 4) { // Roads, sidewalks, goal row
+                    ctx.fillStyle = (tile === 4) ? '#22c55e' : (tile === 1 ? '#444' : '#222');
+                    ctx.fillRect(
+                        (c * ts - p.x) * zoom,
+                        (r * ts - p.z) * zoom,
+                        ts * zoom,
+                        ts * zoom
+                    );
+                } else if (tile === 3) { // Buildings
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(
+                        (c * ts - p.x) * zoom,
+                        (r * ts - p.z) * zoom,
+                        ts * zoom,
+                        ts * zoom
+                    );
+                }
+            }
+        }
+
+        // Draw Goal if outside visible range (compass style)
+        if(this.goalPos) {
+            const dx = (this.goalPos.x - p.x) * zoom;
+            const dz = (this.goalPos.z - p.z) * zoom;
+            const dist = Math.hypot(dx, dz);
+            
+            if (dist > (center - 15)) {
+                const angle = Math.atan2(dz, dx);
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(Math.cos(angle) * (center - 15), Math.sin(angle) * (center - 15), 5, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.fillStyle = '#facc15';
+                ctx.shadowBlur = 10; ctx.shadowColor = '#facc15';
+                ctx.beginPath();
+                ctx.arc(dx, dz, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        ctx.restore();
+
+        // Draw Player Arrow (Fixed at center, pointing up)
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.fillStyle = '#4facfe';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -10);
+        ctx.lineTo(7, 8);
+        ctx.lineTo(0, 4);
+        ctx.lineTo(-7, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
     loop() {
         if (!this.scene) return;
         
         if (this.state === 'PLAYING') {
             this.updatePhysics();
             this.updateAI();
+            this.drawMinimap();
         } else if (this.state === 'MENU' && this.physics && this.camera) {
             // Câmera Rotacionando no Carro quando está no Menu
             const time = Date.now() * 0.0005;
