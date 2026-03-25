@@ -1,440 +1,425 @@
-/**
- * SAFE DELIVERY - CORE ENGINE (GTA 1 OPEN WORLD INSPIRED)
- * Um simulador de condução urbana em perspectiva top-down com mundo aberto em grid.
- */
+import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
 
-// --- CONSTANTES E CONFIGURAÇÕES ---
+// --- CONFIGURAÇÕES ---
 const CONFIG = {
-    TILE_SIZE: 128,          // Tamanho de cada bloco (em pixels)
-    RESOLUTION: { w: 1280, h: 720 },
-    CAMERA_SMOOTH: 0.1,      // Velocidade de arraste da câmera
-
-    // FÍSICA DO CARRO
-    CAR: {
-        MAX_SPEED: 12.0,     
-        ACCEL_TIME: 6.0,     // 6 segundos para velocidade máxima
-        TORQUE: 12.0 / (6.0 * 60), // Ganho por frame
-        BRAKE: 0.35,         
-        FRICTION_AIR: 0.98,  
-        WIDTH: 52,
-        HEIGHT: 26,
-        TURN_POWER_BASE: 0.05,
-        DRIFT_FACTOR: 0.92   
-    },
-
-    // CÂMERA
-    CAMERA: {
-        ZOOM_MIN: 0.8,       // Zoom out em alta velocidade
-        ZOOM_MAX: 1.4,       // Zoom in parado
+    TILE_SIZE: 5,
+    CAMERA: { OFFSET_Y: 2.5, OFFSET_Z: 6, FOV_MIN: 60, FOV_MAX: 90 },
+    VEHICLES: {
+        car: { maxSpeed: 0.4, accel: 0.0011, brake: 0.02, turn: 0.03, height: 0.5, color: 0x1d4ed8 },
+        truck: { maxSpeed: 0.25, accel: 0.0007, brake: 0.015, turn: 0.015, height: 1.2, color: 0xef4444 },
+        moto: { maxSpeed: 0.55, accel: 0.0018, brake: 0.03, turn: 0.045, height: 0.4, color: 0x22c55e }
     }
 };
 
-/**
- * Teclado
- */
+const MAPS = [
+    // MAPA 1
+    [
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1],
+        [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3]
+    ],
+    // MAPA 2 (Menor para teste de manobras)
+    [
+        [3,3,3,1,1,1,3,3,3,3,1,1,1,3,3,3],
+        [3,2,2,1,1,1,2,2,3,2,1,1,1,2,2,3],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [3,2,2,1,1,1,2,2,3,2,1,1,1,2,2,4],
+        [3,3,3,1,1,1,3,3,3,3,1,1,1,3,3,3]
+    ]
+];
+
+// Achievements Definition
+const ACHIEVEMENTS_DEF = {
+    primeiraEntrega: { icon: '📦', name: 'Primeiro Passo', desc: 'Concluir a primeira entrega com sucesso.' },
+    escudoPrata: { icon: '🛡️', name: 'Escudo de Prata', desc: 'Entrega sem bater.' },
+    cidadaoExemplar: { icon: '🚦', name: 'Cidadão Exemplar', desc: 'Passou em sinais verdes.' },
+    anjoDaGuarda: { icon: '🚶', name: 'Anjo da Guarda', desc: 'Não atropelou ninguém.' },
+    equilibrista: { icon: '🏍️', name: 'Equilibrista', desc: 'Entrega de moto ilesa.' }
+};
+
 class Input {
     constructor() {
         this.keys = {};
-        window.addEventListener('keydown', e => this.keys[e.code] = true);
-        window.addEventListener('keyup', e => this.keys[e.code] = false);
+        window.addEventListener('keydown', e => { if (e.code) this.keys[e.code.toLowerCase()] = true; });
+        window.addEventListener('keyup', e => { if (e.code) this.keys[e.code.toLowerCase()] = false; });
     }
-
-    isPressed(code) {
-        return !!this.keys[code];
-    }
+    isPressed(key) { return !!this.keys[key.toLowerCase()]; }
 }
 
-/**
- * Sintetizador de Som
- */
-class SoundSynth {
-    constructor() { this.ctx = null; }
-
-    init() {
-        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-
-    playBump() {
-        if (!this.ctx) return;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(100, this.ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(10, this.ctx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
-        osc.start(); osc.stop(this.ctx.currentTime + 0.15);
-    }
-}
-
-/**
- * Mapa da Cidade (Mundo Aberto por Grid)
- * 0: Grama, 1: Asfalto, 2: Calçada, 3: Prédio (Sólido)
- */
-class CityMap {
-    constructor() {
-        this.tileSize = CONFIG.TILE_SIZE;
+class AudioEngine {
+    constructor(camera) {
+        this.listener = new THREE.AudioListener();
+        camera.add(this.listener);
         
-        // Grid 32x24 (4096x3072 pixels) - Mapa Expandido
-        this.grid = [
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3,3,3,3,3,3,3,3,1,1,3,3,3,3,3,3,3],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-            [3,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3,2,2,2,2,2,2,2,1,1,2,2,2,2,2,2,3],
-        ];
+        this.engineSound = new THREE.PositionalAudio(this.listener);
+        this.hornSound = new THREE.PositionalAudio(this.listener);
+        this.crashSound = new THREE.PositionalAudio(this.listener);
+        this.musicSafe = new THREE.Audio(this.listener);
+        this.musicTense = new THREE.Audio(this.listener);
+        
+        const loader = new THREE.AudioLoader();
+        loader.load('assets/sounds/engine_loop.mp3', buf => {
+            this.engineSound.setBuffer(buf); this.engineSound.setLoop(true); this.engineSound.setVolume(0.5);
+        }, undefined, () => {});
+        loader.load('assets/sounds/horn.mp3', buf => this.hornSound.setBuffer(buf), undefined, () => {});
+        loader.load('assets/sounds/crash.wav', buf => this.crashSound.setBuffer(buf), undefined, () => {});
+        loader.load('assets/sounds/music_safe.mp3', buf => {
+            this.musicSafe.setBuffer(buf); this.musicSafe.setLoop(true); this.musicSafe.setVolume(0.5);
+        }, undefined, () => {});
+        loader.load('assets/sounds/music_tense.mp3', buf => {
+            this.musicTense.setBuffer(buf); this.musicTense.setLoop(true); this.musicTense.setVolume(0);
+        }, undefined, () => {});
+        
+        this.enabled = false;
+    }
 
-        this.rows = this.grid.length;
-        this.cols = this.grid[0].length;
-        this.worldWidth = this.cols * this.tileSize;
-        this.worldHeight = this.rows * this.tileSize;
+    start() {
+        if (this.enabled) return;
+        this.enabled = true;
+        if(this.engineSound.buffer) this.engineSound.play();
+        if(this.musicSafe.buffer) this.musicSafe.play();
+        if(this.musicTense.buffer) this.musicTense.play();
+    }
 
-        // --- SISTEMA DE SEMÁFOROS ---
+    setVolumes(master, music, sfx) {
+        this.listener.setMasterVolume(master);
+        if(this.musicSafe.isPlaying) this.musicSafe.setVolume(music);
+        this.sfxVol = sfx;
+        this.engineSound.setVolume(sfx * 0.5);
+        this.crashSound.setVolume(sfx);
+        this.hornSound.setVolume(sfx);
+    }
+
+    update(speedRatio, infractions) {
+        if (!this.enabled) return;
+        if(this.engineSound.isPlaying) this.engineSound.setPlaybackRate(0.8 + speedRatio * 1.5);
+        
+        let tenseTarget = (speedRatio > 0.8 || infractions > 0) ? 1.0 : 0.0;
+        if (this.musicSafe.isPlaying && this.musicTense.isPlaying) {
+            const mVol = document.getElementById('music-vol').value;
+            const curTense = this.musicTense.getVolume();
+            const curSafe = this.musicSafe.getVolume();
+            this.musicTense.setVolume(curTense + (tenseTarget * mVol - curTense) * 0.05);
+            this.musicSafe.setVolume(curSafe + ((1 - tenseTarget) * mVol - curSafe) * 0.05);
+        }
+    }
+
+    playHorn() { if(this.enabled && this.hornSound.buffer && !this.hornSound.isPlaying) this.hornSound.play(); }
+    playCrash() { if(this.enabled && this.crashSound.buffer) { if(this.crashSound.isPlaying) this.crashSound.stop(); this.crashSound.play(); } }
+    stopMotor() { if(this.engineSound.isPlaying) this.engineSound.pause(); }
+}
+
+class Game3D {
+    constructor() {
+        this.input = new Input();
+        this.state = 'MENU';
+        this.score = 100;
+        this.infractionsLog = { bumps: 0, redlights: 0, pedestrians: 0 };
+        this.achievements = JSON.parse(localStorage.getItem('deliveryAchievements')) || {
+            primeiraEntrega: false, escudoPrata: false, cidadaoExemplar: false, anjoDaGuarda: false, equilibrista: false
+        };
+        
+        this.vehicleType = 'car';
+        this.selectedMapIdx = 0;
+        this.physics = null;
+        this.startTime = 0;
+        this.colliders = [];
         this.trafficLights = [];
-        this.lightTimer = 0;
-        this.initTrafficLights();
-
-        // --- SISTEMA DE PEDESTRES ---
         this.pedestrians = [];
-        this.initPedestrians();
+
+        this.initThree();
+        this.audio = new AudioEngine(this.camera);
+        this.initDOM();
+        
+        requestAnimationFrame(() => this.loop());
     }
 
-    initTrafficLights() {
-        this.trafficLights.push({ x: 7 * this.tileSize, y: 3 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
-        this.trafficLights.push({ x: 8 * this.tileSize + 64, y: 3 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
-        this.trafficLights.push({ x: 23 * this.tileSize, y: 3 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
-        this.trafficLights.push({ x: 24 * this.tileSize + 64, y: 3 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
-        this.trafficLights.push({ x: 7 * this.tileSize, y: 15 * this.tileSize, state: 'GREEN', direction: 'HORIZONTAL' });
-        this.trafficLights.push({ x: 8 * this.tileSize + 64, y: 15 * this.tileSize, state: 'RED', direction: 'VERTICAL' });
-    }
+    initThree() {
+        const container = document.getElementById('canvas-container');
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.shadowMap.enabled = true;
+        container.appendChild(this.renderer.domElement);
 
-    initPedestrians() {
-        // Criar pedestres em áreas de calçadas
-        for (let i = 0; i < 20; i++) {
-            let placed = false;
-            while (!placed) {
-                const r = Math.floor(Math.random() * this.rows);
-                const c = Math.floor(Math.random() * this.cols);
-                if (this.grid[r][c] === 2) { // CALÇADA
-                    this.pedestrians.push({
-                        x: c * this.tileSize + this.tileSize/2,
-                        y: r * this.tileSize + this.tileSize/2,
-                        vx: (Math.random() - 0.5) * 1.5,
-                        vy: (Math.random() - 0.5) * 1.5,
-                        size: 8,
-                        color: `hsl(${Math.random() * 360}, 80%, 60%)`
-                    });
-                    placed = true;
-                }
-            }
-        }
-    }
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x87ceeb);
 
-    update() {
-        this.lightTimer++;
-        if (this.lightTimer > 300) { 
-            this.lightTimer = 0;
-            this.trafficLights.forEach(light => {
-                if (light.state === 'GREEN') light.state = 'YELLOW';
-                else if (light.state === 'YELLOW') light.state = 'RED';
-                else if (light.state === 'RED') light.state = 'GREEN';
-            });
-        } else if (this.lightTimer === 240) { 
-            this.trafficLights.forEach(light => {
-                if (light.state === 'GREEN') light.state = 'YELLOW';
-            });
-        }
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-        // --- ATUALIZAR PEDESTRES ---
-        this.pedestrians.forEach(ped => {
-            const nextX = ped.x + ped.vx;
-            const nextY = ped.y + ped.vy;
-
-            const c = Math.floor(nextX / this.tileSize);
-            const r = Math.floor(nextY / this.tileSize);
-
-            if (r >= 0 && r < this.rows && c >= 0 && c < this.cols) {
-                const tile = this.grid[r][c];
-                
-                // Pedestres DEVEM ficar na calçada (2). 
-                // Se o próximo tile for rua (1), grama (0) ou prédio (3), eles batem e voltam.
-                if (tile !== 2) {
-                    ped.vx *= -1; 
-                    ped.vy *= -1; 
-                } else {
-                    ped.x = nextX;
-                    ped.y = nextY;
-                }
-            } else {
-                ped.vx *= -1; ped.vy *= -1; // Limites do mapa
-            }
-
-            // Aleatoriedade sutil para simular caminhada (sempre na calçada)
-            if (Math.random() < 0.02) {
-                ped.vx = (Math.random() - 0.5) * 1.5;
-                ped.vy = (Math.random() - 0.5) * 1.5;
-            }
+        const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+        this.scene.add(ambient);
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(50, 100, 50);
+        sun.castShadow = true;
+        sun.shadow.camera.left = -100; sun.shadow.camera.right = 100;
+        sun.shadow.camera.top = 100; sun.shadow.camera.bottom = -100;
+        this.scene.add(sun);
+        
+        this.mapGroup = new THREE.Group();
+        this.scene.add(this.mapGroup);
+        
+        window.addEventListener('resize', () => {
+            this.camera.aspect = window.innerWidth / window.innerHeight;
+            this.camera.updateProjectionMatrix();
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
         });
     }
 
-    draw(ctx) {
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                const tile = this.grid[r][c];
-                const tx = c * this.tileSize;
-                const ty = r * this.tileSize;
+    buildMap() {
+        // Clear old map
+        while(this.mapGroup.children.length > 0){ 
+            this.mapGroup.remove(this.mapGroup.children[0]); 
+        }
+        this.colliders = [];
+        this.trafficLights = [];
+        this.pedestrians = [];
 
-                if (tile === 0) ctx.fillStyle = '#14532d';
-                else if (tile === 1) ctx.fillStyle = '#1e293b';
-                else if (tile === 2) ctx.fillStyle = '#94a3b8';
-                else if (tile === 3) ctx.fillStyle = '#020617';
+        const map = MAPS[this.selectedMapIdx];
+        const ts = CONFIG.TILE_SIZE;
+        let bCount = 0;
+        
+        map.forEach(row => row.forEach(tile => { if(tile === 3) bCount++; }));
+        
+        const bGeo = new THREE.BoxGeometry(ts, 1, ts);
+        const bMat = new THREE.MeshPhongMaterial({ color: 0x1e293b });
+        const instMesh = new THREE.InstancedMesh(bGeo, bMat, bCount);
+        instMesh.castShadow = true;
+        instMesh.receiveShadow = true;
+        
+        const dummy = new THREE.Object3D();
+        let idx = 0;
+        this.goalPos = null;
 
-                ctx.fillRect(tx, ty, this.tileSize, this.tileSize);
+        for (let r = 0; r < map.length; r++) {
+            for (let c = 0; c < map[0].length; c++) {
+                const tile = map[r][c];
+                const x = c * ts;
+                const z = r * ts;
 
                 if (tile === 3) {
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(tx + 12, ty + 12, this.tileSize - 24, this.tileSize - 24);
-                    ctx.strokeStyle = '#38bdf8';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(tx + 12, ty + 12, this.tileSize - 24, this.tileSize - 24);
+                    const h = 10 + Math.random() * 15;
+                    dummy.position.set(x, h/2, z);
+                    dummy.scale.set(1, h, 1);
+                    dummy.updateMatrix();
+                    instMesh.setMatrixAt(idx++, dummy.matrix);
+                    
+                    const box = new THREE.Box3();
+                    box.setFromCenterAndSize(new THREE.Vector3(x, h/2, z), new THREE.Vector3(ts, h, ts));
+                    this.colliders.push(box);
                 }
-
-                // Linhas de rua
-                if (tile === 1) {
-                    ctx.strokeStyle = '#eab308';
-                    ctx.lineWidth = 2;
-                    if ((r === 3 || r === 9 || r === 15 || r === 21) && c % 1 === 0) {
-                        ctx.setLineDash([20, 10]);
-                        ctx.beginPath(); ctx.moveTo(tx, ty+this.tileSize); ctx.lineTo(tx+this.tileSize, ty+this.tileSize); ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
-                    if (c === 7 || c === 23) {
-                        ctx.setLineDash([20, 10]);
-                        ctx.beginPath(); ctx.moveTo(tx+this.tileSize, ty); ctx.lineTo(tx+this.tileSize, ty+this.tileSize); ctx.stroke();
-                        ctx.setLineDash([]);
-                    }
+                if (tile === 4) {
+                    const gGeo = new THREE.CylinderGeometry(ts/3, ts/3, 20, 16);
+                    const gMat = new THREE.MeshPhongMaterial({ color: 0x22c55e, transparent: true, opacity: 0.5, emissive: 0x22c55e });
+                    const goal = new THREE.Mesh(gGeo, gMat);
+                    goal.position.set(x, 10, z);
+                    this.mapGroup.add(goal);
+                    this.goalPos = { x, z, radius: ts };
+                }
+                
+                // Add some pedestrians on sidewalks
+                if (tile === 2 && Math.random() < 0.1) {
+                    this.pedestrians.push({
+                        x: x + (Math.random()-0.5)*ts,
+                        z: z + (Math.random()-0.5)*ts,
+                        mesh: null // Instantiated below
+                    });
                 }
             }
         }
+        this.mapGroup.add(instMesh);
 
-        // --- DESENHAR SEMÁFOROS (Estilo Imagem Cartoon) ---
-        this.trafficLights.forEach(light => {
-            const width = 30;
-            const height = 70;
-            const rx = light.x - width/2;
-            const ry = light.y - height/2;
-
-            // 1. Abas Laterais (Sombra das luzes) - Opcional, mas dá detalhe
-            ctx.fillStyle = '#4b3f35';
-            ctx.beginPath();
-            ctx.arc(rx - 5, light.y, 10, Math.PI * 1.5, Math.PI * 0.5, true); ctx.fill(); 
-            ctx.beginPath();
-            ctx.arc(rx + width + 5, light.y, 10, Math.PI * 1.5, Math.PI * 0.5); ctx.fill();
-
-            // 2. Caixa do Semáforo com Bordas Arredondadas
-            ctx.lineWidth = 4;
-            ctx.strokeStyle = '#1a0d00'; // Contorno Preto/Escuro
-            ctx.fillStyle = '#3e342a'; // Marrom da carcaça
-            
-            // Desenhar Retângulo Arredondado
-            ctx.beginPath();
-            if (ctx.roundRect) {
-                ctx.roundRect(rx, ry, width, height, 8);
-            } else {
-                ctx.rect(rx, ry, width, height); // Fallback
-            }
-            ctx.fill();
-            ctx.stroke();
-
-            // 3. Moldura das 3 lâmpadas internas
-            for (let i = 0; i < 3; i++) {
-                const ly = ry + 12 + i * 23;
-                ctx.strokeStyle = '#1a0d00';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(rx + 4, ly - 10, width - 8, 20);
-            }
-
-            // 4. Lâmpadas (Amarelo no topo como na imagem, Verde, Vermelho)
-            const radius = 8;
-            
-            // Lâmpada 1 (Yellow - Topo)
-            const yColor = light.state === 'YELLOW' ? '#facc15' : '#450a0a'; // Escurecido se apagado
-            this.drawLight(ctx, light.x, ry + 12, radius, yColor, light.state === 'YELLOW');
-
-            // Lâmpada 2 (Green - Meio)
-            const gColor = light.state === 'GREEN' ? '#22c55e' : '#052c1e';
-            this.drawLight(ctx, light.x, ry + 35, radius, gColor, light.state === 'GREEN');
-
-            // Lâmpada 3 (Red - Base)
-            const rColor = light.state === 'RED' ? '#ef4444' : '#450101';
-            this.drawLight(ctx, light.x, ry + 58, radius, rColor, light.state === 'RED');
+        // Ground setup
+        const w = map[0].length * ts;
+        const h = map.length * ts;
+        const groundGeo = new THREE.PlaneGeometry(w, h);
+        const groundMat = new THREE.MeshPhongMaterial({ color: 0x333333 });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.set(w/2 - ts/2, 0, h/2 - ts/2);
+        ground.receiveShadow = true;
+        this.mapGroup.add(ground);
+        
+        // Setup Pedestrian Meshes
+        const pGeo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+        const pMat = new THREE.MeshPhongMaterial({ color: 0xf59e0b });
+        this.pedestrians.forEach(p => {
+            const mesh = new THREE.Mesh(pGeo, pMat);
+            mesh.position.set(p.x, 1, p.z);
+            mesh.castShadow = true;
+            this.mapGroup.add(mesh);
+            p.mesh = mesh;
         });
 
-        // --- DESENHAR PEDESTRES ---
-        this.pedestrians.forEach(ped => {
-            ctx.fillStyle = ped.color;
-            ctx.beginPath();
-            ctx.arc(ped.x, ped.y, ped.size, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Cabeça/Sombra estilizada (efeito Top-Down)
-            ctx.fillStyle = '#1e293b';
-            ctx.beginPath();
-            ctx.arc(ped.x, ped.y, ped.size * 0.4, 0, Math.PI * 2);
-            ctx.fill();
+        // Setup Traffic Lights (Simplificado)
+        // Add one light at the center of the map mostly for mechanics testing
+        this.trafficLights.push({
+            x: w/2, z: h/2, state: 'GREEN', timer: 0, mesh: null
+        });
+        
+        this.trafficLights.forEach(tl => {
+            const tlGeo = new THREE.BoxGeometry(1, 4, 1);
+            const tlMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+            const m = new THREE.Mesh(tlGeo, tlMat);
+            m.position.set(tl.x, 2, tl.z);
+            this.mapGroup.add(m);
+            tl.mesh = m;
         });
     }
 
-    checkCollision(x, y) {
-        const c = Math.floor(x / this.tileSize);
-        const r = Math.floor(y / this.tileSize);
-        if (r < 0 || r >= this.rows || c < 0 || c >= this.cols) return 'WALL';
+    spawnPlayer() {
+        if(this.playerMesh) this.scene.remove(this.playerMesh);
         
-        const tile = this.grid[r][c];
-        if (tile === 3) return 'WALL';
-        if (tile === 2) return 'SIDEWALK';
-        return 'ROAD';
-    }
-
-    checkPedestrianCollision(px, py, radius) {
-        for (let ped of this.pedestrians) {
-            const dist = Math.hypot(px - ped.x, py - ped.y);
-            if (dist < radius + ped.size) {
-                return true; // Atropelamento!
-            }
-        }
-        return false;
-    }
-    
-    checkTrafficLightViolation(x, y) {
-        for (let light of this.trafficLights) {
-            if (light.state === 'RED') {
-                const dist = Math.hypot(x - light.x, y - light.y);
-                if (dist < 40) return true; // Vioulo
-            }
-        }
-        return false;
-    }
-}
-
-class PlayerVehicle {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-        this.angle = 0;
-        this.speed = 0;
-        this.velocity = { x: 0, y: 0 };
-        this.integrity = 1.0;
-        this.width = CONFIG.CAR.WIDTH;
-        this.height = CONFIG.CAR.HEIGHT;
-        this.drift = 0;
-    }
-
-    update(input, map) {
-        const speedRatio = Math.abs(this.speed) / CONFIG.CAR.MAX_SPEED;
-        if (input.isPressed('KeyW')) { this.speed += CONFIG.CAR.TORQUE; }
-        else if (input.isPressed('KeyS')) { this.speed -= CONFIG.CAR.BRAKE; }
-        else { this.speed *= CONFIG.CAR.FRICTION_AIR; if (Math.abs(this.speed) < 0.05) this.speed = 0; }
-
-        if (this.speed > CONFIG.CAR.MAX_SPEED) this.speed = CONFIG.CAR.MAX_SPEED;
-        if (this.speed < -CONFIG.CAR.MAX_SPEED * 0.3) this.speed = -CONFIG.CAR.MAX_SPEED * 0.3;
-
-        let turnPower = CONFIG.CAR.TURN_POWER_BASE / (1 + speedRatio * 1.5);
-        if (input.isPressed('KeyA')) this.angle -= turnPower;
-        if (input.isPressed('KeyD')) this.angle += turnPower;
-
-        if (speedRatio > 0.5 && (input.isPressed('KeyA') || input.isPressed('KeyD'))) { this.drift += 0.015 * speedRatio; }
-        this.drift *= CONFIG.CAR.DRIFT_FACTOR;
-
-        const moveAngle = this.angle + (this.drift * (input.isPressed('KeyA') ? -1 : 1));
-        this.velocity.x = Math.cos(moveAngle) * this.speed;
-        this.velocity.y = Math.sin(moveAngle) * this.speed;
-
-        const nextX = this.x + this.velocity.x;
-        const nextY = this.y + this.velocity.y;
-        const collisionType = map.checkCollision(nextX, nextY);
-
-        if (collisionType === 'WALL') {
-            this.speed = -this.speed * 0.5;
-            this.integrity -= 0.2;
-            const flash = document.getElementById('damage-flash');
-            if (flash) { flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 80); }
-            return 'WALL_HIT';
-        } else if (collisionType === 'SIDEWALK') {
-            this.speed *= 0.90; this.x = nextX; this.y = nextY;
-        } else {
-            this.x = nextX; this.y = nextY;
-        }
-        return 'OK';
-    }
-
-    draw(ctx) {
-        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
-        ctx.fillStyle = '#1d4ed8'; ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
-        ctx.fillStyle = '#000000'; ctx.fillRect(0, -this.height / 2 + 2, 10, this.height - 4);
-        ctx.fillStyle = '#fef08a'; ctx.fillRect(this.width / 2 - 4, -this.height / 2 + 3, 4, 3); ctx.fillRect(this.width / 2 - 4, this.height / 2 - 6, 4, 3);
-        ctx.restore();
-    }
-}
-
-/**
- * ENGINE DO JOGO
- */
-class Game {
-    constructor() {
-        this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
-        this.input = new Input();
-        this.sound = new SoundSynth();
-
-        this.state = 'MENU';
-        this.map = new CityMap();
-        this.player = null;
-        this.camera = { x: 0, y: 0, zoom: 1.0 };
-        
-        // Coordenadas da Entrega Redirecionadas (Extremidade Inferior)
-        this.delivery = { x: 3072, y: 2700, radius: 45 }; 
-
-        this.init();
-        this.loop();
-    }
-
-    init() {
-        this.canvas.width = CONFIG.RESOLUTION.w;
-        this.canvas.height = CONFIG.RESOLUTION.h;
-        this.bindUI();
-    }
-
-    bindUI() {
-        document.getElementById('start-btn').onclick = () => {
-            this.sound.init();
-            this.player = new PlayerVehicle(1024, 512); 
-            this.player.integrity = 1.0;
-            this.startTime = Date.now(); // Salvar o tempo de início
-            this.changeState('PLAYING');
+        const stats = CONFIG.VEHICLES[this.vehicleType];
+        this.physics = {
+            x: 5 * CONFIG.TILE_SIZE,
+            z: 5 * CONFIG.TILE_SIZE,
+            angle: 0,
+            speed: 0,
+            drift: 0,
+            stats: stats
         };
-        document.getElementById('restart-btn').onclick = () => this.changeState('MENU');
-        document.getElementById('continue-btn').onclick = () => this.changeState('MENU');
+        
+        const pGeo = new THREE.BoxGeometry(2, stats.height, 4);
+        const pMat = new THREE.MeshPhongMaterial({ color: stats.color });
+        this.playerMesh = new THREE.Mesh(pGeo, pMat);
+        this.playerMesh.castShadow = true;
+        this.scene.add(this.playerMesh);
+        
+        // Add fake headlights
+        const fl = new THREE.PointLight(0xffffee, 1, 20);
+        fl.position.set(0, 0, -2.5);
+        this.playerMesh.add(fl);
+    }
+
+    initDOM() {
+        // Vehicle Selection
+        document.querySelectorAll('.veh-btn').forEach(b => {
+            b.onclick = () => {
+                document.querySelectorAll('.veh-btn').forEach(x => x.classList.remove('active'));
+                b.classList.add('active');
+                this.vehicleType = b.dataset.veh;
+                this.spawnPlayer();
+            };
+        });
+        
+        // Map Selection
+        document.querySelectorAll('.map-btn').forEach(b => {
+            b.onclick = () => {
+                document.querySelectorAll('.map-btn').forEach(x => x.classList.remove('active'));
+                b.classList.add('active');
+                this.selectedMapIdx = parseInt(b.dataset.map);
+                this.buildMap();
+            };
+        });
+
+        // Main Actions
+        document.getElementById('start-btn').onclick = () => this.checkTutorial();
+        document.getElementById('restart-btn').onclick = () => { this.changeState('MENU'); }
+        document.getElementById('restart-btn-succ').onclick = () => { this.changeState('MENU'); }
+        document.getElementById('menu-btn-fail').onclick = () => this.changeState('MENU');
+        document.getElementById('menu-btn-success').onclick = () => this.changeState('MENU');
+        
+        // Settings / Trophies
+        document.getElementById('settings-btn').onclick = () => {
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('settings-screen').classList.remove('hidden');
+        };
+        document.getElementById('close-settings-btn').onclick = () => {
+            document.getElementById('settings-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+        };
+        document.getElementById('trophies-btn').onclick = () => {
+            this.renderTrophies();
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('trophies-screen').classList.remove('hidden');
+        };
+        document.getElementById('close-trophies-btn').onclick = () => {
+            document.getElementById('trophies-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.remove('hidden');
+        };
+
+        // Audio listeners
+        document.getElementById('master-vol').oninput = e => this.audio.setVolumes(e.target.value, document.getElementById('music-vol').value, document.getElementById('sfx-vol').value);
+        document.getElementById('music-vol').oninput = e => this.audio.setVolumes(document.getElementById('master-vol').value, e.target.value, document.getElementById('sfx-vol').value);
+        document.getElementById('sfx-vol').oninput = e => this.audio.setVolumes(document.getElementById('master-vol').value, document.getElementById('music-vol').value, e.target.value);
+
+        // Tutorial logic
+        document.querySelectorAll('.next-tut-btn').forEach(b => {
+            b.onclick = () => {
+                b.parentElement.parentElement.classList.add('hidden');
+                document.getElementById('tutorial-' + b.dataset.next).classList.remove('hidden');
+            };
+        });
+        document.querySelectorAll('.skip-tut-btn').forEach(b => {
+            b.onclick = () => this.startDelivery();
+        });
+        document.querySelector('.finish-tut-btn').onclick = () => this.startDelivery();
+
+        // Initial setup for background view
+        this.buildMap();
+        this.spawnPlayer();
+    }
+
+    checkTutorial() {
+        if (!localStorage.getItem('tutorialSeen3D')) {
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('tutorial-1').classList.remove('hidden');
+            localStorage.setItem('tutorialSeen3D', 'true');
+        } else {
+            this.startDelivery();
+        }
+    }
+
+    startDelivery() {
+        document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+        const cd = document.getElementById('level-start-screen');
+        cd.classList.remove('hidden');
+        
+        // Reset Logic
+        this.score = 100;
+        this.infractionsLog = { bumps: 0, redlights: 0, pedestrians: 0 };
+        this.audio.start();
+        this.buildMap();
+        this.spawnPlayer();
+        
+        let count = 3;
+        const counter = document.getElementById('start-countdown');
+        counter.innerText = count;
+        
+        const tick = setInterval(() => {
+            count--;
+            if(count > 0) {
+                counter.innerText = count;
+            } else {
+                clearInterval(tick);
+                cd.classList.add('hidden');
+                this.startTime = Date.now();
+                this.changeState('PLAYING');
+            }
+        }, 1000);
     }
 
     changeState(newState) {
@@ -442,141 +427,240 @@ class Game {
         document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
         document.getElementById('hud').classList.add('hidden');
 
-        if (newState === 'MENU') document.getElementById('menu-screen').classList.remove('hidden');
-        if (newState === 'PLAYING') document.getElementById('hud').classList.remove('hidden');
+        if (newState === 'MENU') {
+            document.getElementById('menu-screen').classList.remove('hidden');
+            this.audio.stopMotor();
+        }
+        if (newState === 'PLAYING') {
+            document.getElementById('hud').classList.remove('hidden');
+            if(!this.audio.engineSound.isPlaying && this.audio.enabled) this.audio.engineSound.play();
+        }
         if (newState === 'GAME_OVER') {
             document.getElementById('game-over-screen').classList.remove('hidden');
-            if (!document.getElementById('fail-reason').innerText) {
-                document.getElementById('fail-reason').innerText = "Cargo destroyed due to collisions!";
+            this.audio.stopMotor();
+        }
+        if (newState === 'SUCCESS') {
+            document.getElementById('success-screen').classList.remove('hidden');
+            this.audio.stopMotor();
+            this.processEndgame();
+        }
+    }
+
+    processEndgame() {
+        document.getElementById('final-score').innerText = this.score;
+        let stars = 0;
+        if(this.score >= 90) stars = 3;
+        else if(this.score >= 60) stars = 2;
+        else if(this.score > 0) stars = 1;
+        
+        const scnt = document.getElementById('star-rating');
+        scnt.innerHTML = '';
+        for(let i=0; i<3; i++) {
+            scnt.innerHTML += i < stars ? '★' : '<span style="color:#555">★</span>';
+        }
+        
+        // Check achievements
+        if (!this.achievements.primeiraEntrega) this.unlockAchievement('primeiraEntrega');
+        if (this.infractionsLog.bumps === 0 && !this.achievements.escudoPrata) this.unlockAchievement('escudoPrata');
+        if (this.infractionsLog.redlights === 0 && !this.achievements.cidadaoExemplar) this.unlockAchievement('cidadaoExemplar');
+        if (this.infractionsLog.pedestrians === 0 && !this.achievements.anjoDaGuarda) this.unlockAchievement('anjoDaGuarda');
+        if (this.vehicleType === 'moto' && this.infractionsLog.bumps === 0 && !this.achievements.equilibrista) this.unlockAchievement('equilibrista');
+    }
+
+    unlockAchievement(id) {
+        this.achievements[id] = true;
+        localStorage.setItem('deliveryAchievements', JSON.stringify(this.achievements));
+        const def = ACHIEVEMENTS_DEF[id];
+        
+        document.getElementById('ach-name').innerText = def.name;
+        const banner = document.getElementById('achievement-banner');
+        banner.classList.remove('hidden');
+        setTimeout(() => banner.classList.add('show'), 100);
+        setTimeout(() => {
+            banner.classList.remove('show');
+            setTimeout(() => banner.classList.add('hidden'), 500);
+        }, 4000);
+    }
+
+    renderTrophies() {
+        const container = document.getElementById('trophies-list');
+        container.innerHTML = '';
+        for(let k in ACHIEVEMENTS_DEF) {
+            const unlocked = this.achievements[k];
+            const t = ACHIEVEMENTS_DEF[k];
+            container.innerHTML += `
+                <div class="trophy-item ${unlocked ? '' : 'locked'}">
+                    <div style="font-size:32px">${t.icon}</div>
+                    <div>
+                        <div style="font-weight:bold">${t.name}</div>
+                        <div style="font-size:12px; color:#aaa">${t.desc}</div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    updatePhysics() {
+        const p = this.physics;
+        const stats = p.stats;
+        
+        if (this.input.isPressed('KeyW') || this.input.isPressed('ArrowUp')) p.speed += stats.accel;
+        else if (this.input.isPressed('KeyS') || this.input.isPressed('ArrowDown')) p.speed -= stats.brake;
+        else { p.speed *= 0.98; if(Math.abs(p.speed) < 0.01) p.speed = 0; }
+        
+        if (this.input.isPressed('KeyH')) this.audio.playHorn();
+        
+        if (p.speed > stats.maxSpeed) p.speed = stats.maxSpeed;
+        if (p.speed < -stats.maxSpeed * 0.4) p.speed = -stats.maxSpeed * 0.4;
+        
+        const speedRatio = Math.abs(p.speed) / stats.maxSpeed;
+        
+        let turn = stats.turn / (1 + speedRatio);
+        if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) p.angle += turn;
+        if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) p.angle -= turn;
+        
+        // Simular Roll nas curvas
+        let rollTarget = 0;
+        if (speedRatio > 0.3) {
+            if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) rollTarget = 0.1;
+            if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) rollTarget = -0.1;
+        }
+        this.playerMesh.rotation.z += (rollTarget - this.playerMesh.rotation.z) * 0.1;
+
+        // Move
+        const nextX = p.x - Math.sin(p.angle) * p.speed;
+        const nextZ = p.z - Math.cos(p.angle) * p.speed;
+        
+        // Collision AABB
+        const carBox = new THREE.Box3();
+        carBox.setFromCenterAndSize(
+            new THREE.Vector3(nextX, stats.height/2, nextZ),
+            new THREE.Vector3(2, stats.height, 4) // Car dims roughly
+        );
+        
+        let hit = false;
+        for (let b of this.colliders) {
+            if (carBox.intersectsBox(b)) {
+                hit = true; break;
             }
         }
-        if (newState === 'SUCCESS') document.getElementById('success-screen').classList.remove('hidden');
-    }
-
-    update() {
-        if (this.state !== 'PLAYING') return;
-
-        if (this.map.update) this.map.update();
-
-        const res = this.player.update(this.input, this.map);
         
-        if (res === 'WALL_HIT') {
-            this.sound.playBump();
-        } else if (res === 'SIDEWALK_HIT') {
-            document.getElementById('fail-reason').innerText = "You drove on the sidewalk! Respect pedestrians.";
-            this.changeState('GAME_OVER');
-            return;
-        }
-
-        if (this.map.checkPedestrianCollision && this.map.checkPedestrianCollision(this.player.x, this.player.y, 12)) {
-            document.getElementById('fail-reason').innerText = "ACCIDENT! You hit a pedestrian.";
-            this.changeState('GAME_OVER');
-            return;
-        }
-
-        if (this.map.checkTrafficLightViolation && this.map.checkTrafficLightViolation(this.player.x, this.player.y)) {
-            this.player.integrity -= 0.005; 
+        if (hit) {
+            p.speed *= -0.5; // Bounce
+            this.score -= 10;
+            this.infractionsLog.bumps++;
+            this.audio.playCrash();
             const flash = document.getElementById('damage-flash');
-            if (flash) { flash.style.opacity = '0.4'; setTimeout(() => flash.style.opacity = '0', 50); }
+            flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100);
+            if (this.score <= 0) {
+                document.getElementById('fail-reason').innerText = "Veículo destruído por múltiplas colisões!";
+                this.changeState('GAME_OVER');
+                return;
+            }
+        } else {
+            p.x = nextX;
+            p.z = nextZ;
         }
 
-        if (this.player.integrity <= 0) {
-            document.getElementById('fail-reason').innerText = "Parcel destroyed with collisions or fines!";
-            this.changeState('GAME_OVER');
-            return;
-        }
-
-        const distToDelivery = Math.hypot(this.player.x - this.delivery.x, this.player.y - this.delivery.y);
-        if (distToDelivery < this.delivery.radius) {
-            this.changeState('SUCCESS');
-        }
-
-        const speedRatio = Math.abs(this.player.speed) / CONFIG.CAR.MAX_SPEED;
-        const targetZoom = CONFIG.CAMERA.ZOOM_MAX - (CONFIG.CAMERA.ZOOM_MAX - CONFIG.CAMERA.ZOOM_MIN) * speedRatio;
-        this.camera.zoom += (targetZoom - this.camera.zoom) * 0.05;
-
-        this.camera.x += (this.player.x - this.camera.x) * CONFIG.CAMERA_SMOOTH;
-        this.camera.y += (this.player.y - this.camera.y) * CONFIG.CAMERA_SMOOTH;
-
-        const halfWidth = (this.canvas.width / 2) / this.camera.zoom;
-        const halfHeight = (this.canvas.height / 2) / this.camera.zoom;
-
-        if (this.camera.x < halfWidth) this.camera.x = halfWidth;
-        if (this.camera.y < halfHeight) this.camera.y = halfHeight;
-        if (this.camera.x > this.map.worldWidth - halfWidth) this.camera.x = this.map.worldWidth - halfWidth;
-        if (this.camera.y > this.map.worldHeight - halfHeight) this.camera.y = this.map.worldHeight - halfHeight;
-
-        this.updateHUD();
-    }
-
-    updateHUD() {
-        document.getElementById('integrity-bar').style.width = (this.player.integrity * 100) + '%';
-        document.getElementById('speed-val').innerText = Math.floor(Math.abs(this.player.speed) * 15);
-
-        // ATUALIZAÇÃO DO CRONÔMETRO
-        if (this.startTime) {
-            const elapsed = Date.now() - this.startTime;
-            const minutes = Math.floor(elapsed / 60000).toString().padStart(2, '0');
-            const seconds = Math.floor((elapsed % 60000) / 1000).toString().padStart(2, '0');
-            document.getElementById('timer-val').innerText = `${minutes}:${seconds}`;
-        }
-    }
-
-    draw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        this.ctx.save();
-
-        // Passar câmera para o centro da viewport
-        this.ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
-        this.ctx.scale(this.camera.zoom, this.camera.zoom);
-        this.ctx.translate(-this.camera.x, -this.camera.y);
-
-        // Render Canvas Bounds (Debug se necessário)
-        this.map.draw(this.ctx);
-
-        // Desenhar Ponto de Entrega
-        this.ctx.fillStyle = 'rgba(34, 197, 94, 0.4)';
-        this.ctx.beginPath();
-        this.ctx.arc(this.delivery.x, this.delivery.y, this.delivery.radius, 0, Math.PI*2);
-        this.ctx.fill();
-
-        if (this.player) this.player.draw(this.ctx);
-
-        this.ctx.restore();
-
-        // DESENHAR SETA GPS FIXA NA HUD OU NA BORDA DA TELA
-        if (this.state === 'PLAYING' && this.player) {
-            this.drawGPSArrow();
-        }
-    }
-
-    drawGPSArrow() {
-        const angleToDelivery = Math.atan2(this.delivery.y - this.player.y, this.delivery.x - this.player.x);
+        // Apply Transform
+        this.playerMesh.position.set(p.x, stats.height/2, p.z);
+        this.playerMesh.rotation.y = p.angle;
         
-        // Posição fixa no topo esquerdo do HUD ou logo acima do carro na rotação do canvas
-        this.ctx.save();
-        this.ctx.translate(this.canvas.width / 2, 80); // Alto da tela central
-        this.ctx.rotate(angleToDelivery);
+        // Check Goal
+        if (this.goalPos) {
+            const dist = Math.hypot(p.x - this.goalPos.x, p.z - this.goalPos.z);
+            if (dist < 10) {
+                this.changeState('SUCCESS');
+                return;
+            }
+        }
+        
+        // Check Pedestrians
+        this.pedestrians.forEach(ped => {
+            const d = Math.hypot(p.x - ped.x, p.z - ped.z);
+            if(d < 3 && !ped.hit) {
+                ped.hit = true;
+                this.score -= 30;
+                this.infractionsLog.pedestrians++;
+                const wn = document.getElementById('pedestrian-warning');
+                wn.classList.remove('hidden'); setTimeout(() => wn.classList.add('hidden'), 1000);
+            }
+        });
 
-        this.ctx.fillStyle = '#22c55e';
-        this.ctx.shadowBlur = 10; this.ctx.shadowColor = '#22c55e';
-        this.ctx.beginPath();
-        this.ctx.moveTo(15, 0);
-        this.ctx.lineTo(-10, -10);
-        this.ctx.lineTo(-10, 10);
-        this.ctx.fill();
+        // Update Cam
+        const targetFov = CONFIG.CAMERA.FOV_MIN + (CONFIG.CAMERA.FOV_MAX - CONFIG.CAMERA.FOV_MIN) * speedRatio;
+        this.camera.fov += (targetFov - this.camera.fov) * 0.05;
+        this.camera.updateProjectionMatrix();
 
-        this.ctx.restore();
+        const camTargetX = p.x + Math.sin(p.angle) * CONFIG.CAMERA.OFFSET_Z;
+        const camTargetZ = p.z + Math.cos(p.angle) * CONFIG.CAMERA.OFFSET_Z;
+        
+        this.camera.position.x += (camTargetX - this.camera.position.x) * 0.1;
+        this.camera.position.y += (stats.height + CONFIG.CAMERA.OFFSET_Y - this.camera.position.y) * 0.1;
+        this.camera.position.z += (camTargetZ - this.camera.position.z) * 0.1;
+        
+        this.camera.lookAt(p.x, stats.height/2, p.z);
+
+        // UI Update
+        document.getElementById('speed-val').innerText = Math.floor(Math.abs(p.speed) * 150);
+        document.getElementById('score-val').innerText = this.score;
+        document.getElementById('integrity-bar').style.width = Math.max(0, this.score) + '%';
+        
+        this.audio.update(speedRatio, this.infractionsLog.bumps);
+    }
+    
+    updateAI() {
+        this.trafficLights.forEach(tl => {
+            tl.timer++;
+            if(tl.timer > 300) {
+                tl.timer = 0;
+                tl.state = tl.state === 'GREEN' ? 'RED' : 'GREEN';
+                if(tl.mesh) tl.mesh.material.color.setHex(tl.state === 'GREEN' ? 0x22c55e : 0xef4444);
+            }
+            
+            // Ver se player passou no vermelho
+            if(tl.state === 'RED' && this.state === 'PLAYING') {
+                const dist = Math.hypot(this.physics.x - tl.x, this.physics.z - tl.z);
+                if(dist < 5 && Math.abs(this.physics.speed) > 0.1 && !tl.punishedForCycle) {
+                    this.score -= 20;
+                    this.infractionsLog.redlights++;
+                    tl.punishedForCycle = true;
+                    const w = document.getElementById('traffic-warning');
+                    w.classList.remove('hidden'); setTimeout(()=>w.classList.add('hidden'), 1000);
+                }
+            }
+            if(tl.state === 'GREEN') tl.punishedForCycle = false;
+        });
+        
+        if(this.state === 'PLAYING' && this.startTime) {
+            const elapsed = Date.now() - this.startTime;
+            const m = Math.floor(elapsed / 60000).toString().padStart(2, '0');
+            const s = Math.floor((elapsed % 60000)/1000).toString().padStart(2, '0');
+            document.getElementById('timer-val').innerText = `${m}:${s}`;
+        }
     }
 
     loop() {
-        this.update();
-        this.draw();
-        requestAnimationFrame(() => this.loop());
+        if (this.state === 'PLAYING') {
+            this.updatePhysics();
+            this.updateAI();
+        } else if (this.state === 'MENU' && this.playerMesh) {
+            // Rotating camera around car in menu
+            const time = Date.now() * 0.0005;
+            this.camera.position.x = this.physics.x + Math.sin(time) * 10;
+            this.camera.position.z = this.physics.z + Math.cos(time) * 10;
+            this.camera.position.y = 5;
+            this.camera.lookAt(this.physics.x, 0, this.physics.z);
+        }
+        
+        if (this.score <= 0 && this.state === 'PLAYING') {
+            document.getElementById('fail-reason').innerText = "Você zerou seus pontos com infrações constantes.";
+            this.changeState('GAME_OVER');
+        }
+
+        this.renderer.render(this.scene, this.camera);
+        requestAnimationFrame(this.loop);
     }
 }
 
-window.onload = () => {
-    new Game();
-};
+new Game3D();
