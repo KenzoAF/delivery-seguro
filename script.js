@@ -1,4 +1,5 @@
 import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
+import { GLTFLoader } from 'https://unpkg.com/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
 
 console.log("Delivery Seguro 3D - v2 Local / Web Loaded correctly no cache");
 
@@ -7,9 +8,9 @@ const CONFIG = {
     TILE_SIZE: 10, // Aumentado para alargar as ruas (Antes era 5)
     CAMERA: { OFFSET_Y: 14, OFFSET_Z: 16, FOV_MIN: 60, FOV_MAX: 85 }, // Offset Y alçado para não furar prédios e dar visao melhor
     VEHICLES: {
-        car: { maxSpeed: 0.6, accel: 0.003, brake: 0.03, turn: 0.04, height: 1.0, color: 0x1d4ed8, width: 2, length: 4 },
-        truck: { maxSpeed: 0.4, accel: 0.0015, brake: 0.02, turn: 0.02, height: 2.2, color: 0xef4444, width: 3, length: 6 },
-        moto: { maxSpeed: 0.8, accel: 0.005, brake: 0.05, turn: 0.06, height: 0.6, color: 0x22c55e, width: 1, length: 2 }
+        car: { maxSpeed: 0.6, accel: 0.003, brake: 0.03, turn: 0.04, height: 1.0, color: 0x1d4ed8, width: 2, length: 4, modelPath: 'assets/models/carro.glb' },
+        truck: { maxSpeed: 0.4, accel: 0.0015, brake: 0.02, turn: 0.02, height: 2.2, color: 0xef4444, width: 3, length: 6, modelPath: 'assets/models/caminhao.glb' },
+        moto: { maxSpeed: 0.8, accel: 0.005, brake: 0.05, turn: 0.06, height: 0.6, color: 0x22c55e, width: 1, length: 2, modelPath: 'assets/models/moto.glb' }
     }
 };
 
@@ -119,6 +120,52 @@ class AudioEngine {
     stopMotor() { if(this.engineSound.isPlaying) this.engineSound.pause(); }
 }
 
+class ParticleSystem {
+    constructor(scene) {
+        this.scene = scene;
+        this.pool = [];
+    }
+
+    emit(x, y, z, type = 'smoke', count = 1) {
+        if(this.pool.length > 150) return; // Limite para performance web
+
+        const color = type === 'smoke' ? 0xdddddd : 0x8b4513; 
+        const geo = new THREE.SphereGeometry(0.15, 6, 6);
+        const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+        
+        for(let i=0; i<count; i++) {
+            const p = new THREE.Mesh(geo, mat);
+            p.position.set(x + (Math.random()-0.5)*0.3, y, z + (Math.random()-0.5)*0.3);
+            
+            this.scene.add(p);
+            this.pool.push({
+                mesh: p,
+                vel: new THREE.Vector3((Math.random()-0.5)*0.03, 0.05 + Math.random()*0.05, (Math.random()-0.5)*0.03),
+                life: 1.0,
+                decay: 0.02,
+                type: type
+            });
+        }
+    }
+
+    update() {
+        for(let i=this.pool.length-1; i>=0; i--) {
+            const p = this.pool[i];
+            p.life -= p.decay;
+            p.mesh.position.add(p.vel);
+            p.mesh.scale.multiplyScalar(1.05);
+            p.mesh.material.opacity = p.life;
+            
+            if(p.life <= 0) {
+                this.scene.remove(p.mesh);
+                p.mesh.geometry.dispose();
+                p.mesh.material.dispose();
+                this.pool.splice(i, 1);
+            }
+        }
+    }
+}
+
 class Game3D {
     constructor() {
         this.input = new Input();
@@ -136,15 +183,18 @@ class Game3D {
         this.colliders = [];
         this.trafficLights = [];
         this.pedestrians = [];
+        this.loader = new GLTFLoader();
+        this.wheelRotation = 0;
+        this.frameCounter = 0;
 
         this.minimapCanvas = document.getElementById('minimap-canvas');
         this.minimapCtx = this.minimapCanvas ? this.minimapCanvas.getContext('2d') : null;
 
         this.initThree();
+        this.particles = new ParticleSystem(this.scene);
         this.audio = new AudioEngine(this.camera);
         this.initDOM();
         
-        // Loop a prova de falhas com Arrow Function pura pro requestAnimationFrame!
         this.runAppLoop = () => {
             this.loop();
             requestAnimationFrame(this.runAppLoop);
@@ -152,16 +202,26 @@ class Game3D {
         requestAnimationFrame(this.runAppLoop);
     }
 
+    loop() {
+        if(this.state === 'PLAYING' || this.state === 'MENU') {
+            this.updatePhysics();
+            this.updateAI();
+            this.drawMinimap();
+            if(this.particles) this.particles.update();
+        }
+        this.renderer.render(this.scene, this.camera);
+    }
+
     initThree() {
         const container = document.getElementById('canvas-container');
-        if(!container) return; // Prevent crashes if HTML missing
+        if(!container) return; 
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setSize(window.innerWidth, window.innerHeight);
         this.renderer.shadowMap.enabled = true;
         container.appendChild(this.renderer.domElement);
 
         this.scene = new THREE.Scene();
-        this.scene.background = new THREE.Color(0x87ceeb); // Céu azul
+        this.scene.background = new THREE.Color(0x87ceeb); 
 
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
@@ -170,7 +230,6 @@ class Game3D {
         const sun = new THREE.DirectionalLight(0xffffff, 1.2);
         sun.position.set(50, 100, 50);
         sun.castShadow = true;
-        // Melhora sombras web
         sun.shadow.camera.left = -100; sun.shadow.camera.right = 100;
         sun.shadow.camera.top = 100; sun.shadow.camera.bottom = -100;
         sun.shadow.mapSize.width = 2048; sun.shadow.mapSize.height = 2048;
@@ -178,6 +237,10 @@ class Game3D {
         
         this.mapGroup = new THREE.Group();
         this.scene.add(this.mapGroup);
+
+        const rim = new THREE.DirectionalLight(0xffffff, 0.4);
+        rim.position.set(-50, 50, -50);
+        this.scene.add(rim);
         
         window.addEventListener('resize', () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -348,72 +411,70 @@ class Game3D {
         
         // O carro precisa existir visualmente nas suas posições declaradas!
         // ---------------------------------------------------------
-        // NOVO MODELO DE VEÍCULO DETALHADO (Chassis, Rodas, Luzes)
+        // SISTEMA DE CARREGAMENTO HÍBRIDO (GLTF + FALLBACK)
         // ---------------------------------------------------------
-        const createDetailedVehicle = (st, type) => {
+        const createDetailedVehicleFallback = (st, type) => {
             const group = new THREE.Group();
-            
-            // 1. CARROCERIA (Base)
             const bodyGeo = new THREE.BoxGeometry(st.width, st.height * 0.6, st.length);
-            const bodyMat = new THREE.MeshPhongMaterial({ color: st.color });
+            const bodyMat = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.7, roughness: 0.3 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = st.height * 0.3 + 0.3; // Eleva um pouco das rodas
+            body.position.y = st.height * 0.3 + 0.3;
             body.castShadow = true;
             group.add(body);
             
-            // 2. CABINE / JANELAS (Teto)
-            const cabinWidth = st.width * 0.85;
-            const cabinLength = st.length * 0.6;
-            const cabinGeo = new THREE.BoxGeometry(cabinWidth, st.height * 0.5, cabinLength);
-            const cabinMat = new THREE.MeshPhongMaterial({ color: 0x111111, transparent: true, opacity: 0.8 });
+            const cabinGeo = new THREE.BoxGeometry(st.width * 0.8, st.height * 0.5, st.length * 0.6);
+            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
             const cabin = new THREE.Mesh(cabinGeo, cabinMat);
             cabin.position.set(0, st.height * 0.7 + 0.3, -st.length * 0.05);
             group.add(cabin);
 
-            // 3. RODAS (Cilindros Pretos)
             const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
-            const wheelMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
-            const wheelOffsets = [
-                { x: st.width/2, z: st.length/2 - 0.8 }, { x: -st.width/2, z: st.length/2 - 0.8 },
-                { x: st.width/2, z: -st.length/2 + 0.8 }, { x: -st.width/2, z: -st.length/2 + 0.8 }
-            ];
-            
-            wheelOffsets.forEach(offset => {
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+            [{x:st.width/2, z:st.length/2-0.8}, {x:-st.width/2, z:st.length/2-0.8}, {x:st.width/2, z:-st.length/2+0.8}, {x:-st.width/2, z:-st.length/2+0.8}].forEach(o => {
                 const w = new THREE.Mesh(wheelGeo, wheelMat);
-                w.rotation.z = Math.PI / 2; // Deita o cilindro
-                w.position.set(offset.x, 0.4, offset.z);
+                w.rotation.z = Math.PI/2;
+                w.position.set(o.x, 0.4, o.z);
                 group.add(w);
             });
-
-            // 4. FARÓIS FRONTAIS (Brancos Emissivos)
-            const headGeo = new THREE.BoxGeometry(0.5, 0.3, 0.1);
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2 });
-            const headL = new THREE.Mesh(headGeo, headMat);
-            const headR = new THREE.Mesh(headGeo, headMat);
-            headL.position.set(-st.width/2 + 0.4, st.height * 0.4, -st.length/2);
-            headR.position.set(st.width/2 - 0.4, st.height * 0.4, -st.length/2);
-            group.add(headL, headR);
-
-            // 5. LANTERNAS TRASEIRAS (Vermelhas Emissivas)
-            const tailGeo = new THREE.BoxGeometry(0.6, 0.3, 0.1);
-            const tailMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2 });
-            const tailL = new THREE.Mesh(tailGeo, tailMat);
-            const tailR = new THREE.Mesh(tailGeo, tailMat);
-            tailL.position.set(-st.width/2 + 0.4, st.height * 0.4, st.length/2);
-            tailR.position.set(st.width/2 - 0.4, st.height * 0.4, st.length/2);
-            group.add(tailL, tailR);
-
             return group;
         };
 
-        this.playerMesh = createDetailedVehicle(stats, this.vehicleType);
-        this.playerMesh.position.set(this.physics.x, 0, this.physics.z); // Y=0 porque interno ele se sobe
+        // Carrega o modelo Real ou usa o detalhado como fallback instantâneo
+        this.playerMesh = createDetailedVehicleFallback(stats, this.vehicleType);
+        this.playerMesh.position.set(this.physics.x, 0, this.physics.z);
         this.scene.add(this.playerMesh);
-        
-        // Faróis Dinâmicos (Luz Real)
-        const fl = new THREE.SpotLight(0xffffee, 2, 40, Math.PI/6, 0.5);
-        fl.position.set(0, 1, -stats.length/2);
-        fl.target.position.set(0, 0, -stats.length/2 - 10);
+
+        this.loader.load(stats.modelPath, (gltf) => {
+            this.scene.remove(this.playerMesh);
+            this.playerMesh = gltf.scene;
+            this.playerMesh.traverse(child => {
+                if(child.isMesh) {
+                    child.castShadow = true;
+                    if(child.material) {
+                        child.material.metalness = 0.7;
+                        child.material.roughness = 0.3;
+                    }
+                }
+            });
+            this.playerMesh.position.set(this.physics.x, 0, this.physics.z);
+            this.scene.add(this.playerMesh);
+
+            // Recalcular Hitbox baseada no modelo real
+            const box = new THREE.Box3().setFromObject(this.playerMesh);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            this.physics.stats.width = size.x;
+            this.physics.stats.height = size.y;
+            this.physics.stats.length = size.z;
+            
+        }, undefined, (err) => {
+            console.warn("Modelo .glb não encontrado, usando fallback processual.");
+        });
+
+        // Faróis Dinâmicos
+        const fl = new THREE.SpotLight(0xffffee, 3, 50, Math.PI/6, 0.5);
+        fl.position.set(0, 1.2, -stats.length/2);
+        fl.target.position.set(0, 0, -stats.length/2 - 15);
         this.playerMesh.add(fl);
         this.playerMesh.add(fl.target);
     }
@@ -683,13 +744,56 @@ class Game3D {
         if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) p.angle += turn;
         if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) p.angle -= turn;
         
-        // Simular Roll (Inclinação da carroceria na curva)
-        let rollTarget = 0;
-        if (speedRatio > 0.3) {
-            if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) rollTarget = 0.1;
-            if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) rollTarget = -0.1;
+        // Efeitos de Partículas Dinâmicos
+        this.frameCounter++;
+        if(this.frameCounter % 3 === 0) {
+            // Fumaça de escapamento (sempre um pouco, mais no W)
+            const exhaustX = p.x + Math.sin(p.angle) * stats.length/2;
+            const exhaustZ = p.z + Math.cos(p.angle) * stats.length/2;
+            if(this.input.isPressed('KeyW') || Math.abs(p.speed) < 0.1) {
+                this.particles.emit(exhaustX, 0.5, exhaustZ, 'smoke', 1);
+            }
+            // Poeira de pneus (derrapada ao frear em velocidade ou curva forte)
+            if((this.input.isPressed('KeyS') && Math.abs(p.speed) > 0.3) || (Math.abs(turn) > 0.03 && speedRatio > 0.7)) {
+                this.particles.emit(p.x, 0.2, p.z, 'dust', 2);
+            }
         }
+        
+        // ----------------------------------------
+        // ANIMAÇÃO DE SUSPENSÃO E DINÂMICA (Game Feel)
+        // ----------------------------------------
+        // Roll (Curva): Inclina pro lado oposto ao giro
+        let rollTarget = 0;
+        let pitchTarget = 0;
+        
+        if (speedRatio > 0.1) {
+            if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) rollTarget = 0.08;
+            if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) rollTarget = -0.08;
+            
+            // Pitch (Frenagem/Aceleração)
+            if (this.input.isPressed('KeyS') || this.input.isPressed('ArrowDown')) pitchTarget = 0.05; // Mergulha a frente
+            if (this.input.isPressed('KeyW') || this.input.isPressed('ArrowUp')) pitchTarget = -0.02; // Levanta a frente
+        }
+
+        // Interpolação suave para não tremer
         this.playerMesh.rotation.z += (rollTarget - this.playerMesh.rotation.z) * 0.1;
+        this.playerMesh.rotation.x += (pitchTarget - this.playerMesh.rotation.x) * 0.1;
+
+        // Rotação de Rodas (Visual)
+        this.wheelRotation += p.speed * 2;
+        this.playerMesh.traverse(child => {
+            const name = child.name.toLocaleLowerCase();
+            if(name.includes('wheel') || name.includes('roda')) {
+                child.rotation.x = this.wheelRotation;
+                // Rodas dianteiras esterçam
+                if(name.includes('front') || name.includes('diant')) {
+                    let steering = 0;
+                    if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) steering = 0.4;
+                    if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) steering = -0.4;
+                    child.rotation.y = steering;
+                }
+            }
+        });
 
         // Movimento vetorial baseado no Angulo do veículo
         const nextX = p.x - Math.sin(p.angle) * p.speed;
