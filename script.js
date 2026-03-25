@@ -283,19 +283,79 @@ class Game3D {
             });
         }
 
-        // Semáforos dummy pra lógica visual
-        this.trafficLights.push({
-            x: ts * 7, z: ts * 7, state: 'GREEN', timer: 0, mesh: null
-        });
-        
-        this.trafficLights.forEach(tl => {
-            const tlGeo = new THREE.BoxGeometry(1, 6, 1);
-            const tlMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
-            const m = new THREE.Mesh(tlGeo, tlMat);
-            m.position.set(tl.x, 3, tl.z);
-            this.mapGroup.add(m);
-            tl.mesh = m;
-        });
+        // ---------------------------------------------------------
+        // NOVO SISTEMA DE SEMÁFOROS 3D EM CRUZAMENTOS
+        // ---------------------------------------------------------
+        const createTrafficLightModel = (isOffset) => {
+            const group = new THREE.Group();
+            
+            // Poste
+            const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 6);
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x444444 });
+            const pole = new THREE.Mesh(poleGeo, poleMat);
+            pole.position.y = 3;
+            group.add(pole);
+            
+            // Caixa de lâmpadas
+            const boxGeo = new THREE.BoxGeometry(0.8, 2.4, 0.8);
+            const boxMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+            const box = new THREE.Mesh(boxGeo, boxMat);
+            box.position.set(0, 5, 0.5);
+            group.add(box);
+            
+            // Lâmpadas (Esferas)
+            const lampGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            const red = new THREE.Mesh(lampGeo, new THREE.MeshStandardMaterial({ color: 0x330000, emissive: 0xff0000, emissiveIntensity: 0 }));
+            const yellow = new THREE.Mesh(lampGeo, new THREE.MeshStandardMaterial({ color: 0x333300, emissive: 0xffff00, emissiveIntensity: 0 }));
+            const green = new THREE.Mesh(lampGeo, new THREE.MeshStandardMaterial({ color: 0x003300, emissive: 0x00ff00, emissiveIntensity: 0 }));
+            
+            red.position.set(0, 5.8, 0.9);
+            yellow.position.set(0, 5, 0.9);
+            green.position.set(0, 4.2, 0.9);
+            
+            group.add(red, yellow, green);
+            return { group, red, yellow, green };
+        };
+
+        // Escaneia o mapa procurando cruzamentos (Interseção de ruas ID 1)
+        for (let r = 0; r < map.length - 1; r++) {
+            for (let c = 0; c < map[0].length - 1; c++) {
+                // Se encontrar o canto superior esquerdo de um cruzamento 2x2 de ruas (ID 1)
+                if (map[r][c] === 1 && map[r+1][c] === 1 && map[r][c+1] === 1 && map[r+1][c+1] === 1) {
+                    
+                    // Coloca 4 semáforos, um em cada entrada do cruzamento
+                    const configs = [
+                        { x: (c-1)*ts, z: (r+0.5)*ts, ang: -Math.PI/2, offset: false }, // Esquerda
+                        { x: (c+2)*ts, z: (r+1.5)*ts, ang: Math.PI/2, offset: false },  // Direita
+                        { x: (c+0.5)*ts, z: (r+2)*ts, ang: 0, offset: true },           // Baixo
+                        { x: (c+1.5)*ts, z: (r-1)*ts, ang: Math.PI, offset: true }      // Cima
+                    ];
+
+                    configs.forEach(conf => {
+                        const tl = createTrafficLightModel(conf.offset);
+                        tl.group.position.set(conf.x, 0, conf.z);
+                        tl.group.rotation.y = conf.ang;
+                        this.mapGroup.add(tl.group);
+                        
+                        this.trafficLights.push({
+                            x: conf.x, z: conf.z,
+                            state: conf.offset ? 'RED' : 'GREEN', // Sincronização: metade começa vermelho
+                            timer: conf.offset ? 0 : 0, 
+                            meshGroup: tl.group,
+                            lamps: { red: tl.red, yellow: tl.yellow, green: tl.green },
+                            triggerBox: new THREE.Box3().setFromCenterAndSize(
+                                new THREE.Vector3(conf.x - Math.sin(conf.ang)*5, 1, conf.z - Math.cos(conf.ang)*5),
+                                new THREE.Vector3(ts, 2, ts)
+                            ),
+                            punishedForCycle: false
+                        });
+                    });
+                    
+                    // Pula o resto do cruzamento para não duplicar semáforos
+                    c += 1;
+                }
+            }
+        }
     }
 
     spawnPlayer() {
@@ -643,24 +703,30 @@ class Game3D {
     
     updateAI() {
         this.trafficLights.forEach(tl => {
-            tl.timer++;
-            if(tl.timer > 300) {
-                tl.timer = 0;
-                tl.state = tl.state === 'GREEN' ? 'RED' : 'GREEN';
-                if(tl.mesh) tl.mesh.material.color.setHex(tl.state === 'GREEN' ? 0x22c55e : 0xef4444);
-            }
+            tl.timer += 1/60; // Baseado em 60fps
             
-            if(tl.state === 'RED' && this.state === 'PLAYING' && this.physics) {
-                const dist = Math.hypot(this.physics.x - tl.x, this.physics.z - tl.z);
-                if(dist < 5 && Math.abs(this.physics.speed) > 0.1 && !tl.punishedForCycle) {
+            // Ciclo: Verde (10s), Amarelo (3s), Vermelho (10s)
+            if (tl.state === 'GREEN' && tl.timer >= 10) { tl.state = 'YELLOW'; tl.timer = 0; }
+            else if (tl.state === 'YELLOW' && tl.timer >= 3) { tl.state = 'RED'; tl.timer = 0; }
+            else if (tl.state === 'RED' && tl.timer >= 10) { tl.state = 'GREEN'; tl.timer = 0; tl.punishedForCycle = false; }
+            
+            // Atualiza brilho emissivo
+            tl.lamps.red.material.emissiveIntensity = tl.state === 'RED' ? 2 : 0;
+            tl.lamps.yellow.material.emissiveIntensity = tl.state === 'YELLOW' ? 2 : 0;
+            tl.lamps.green.material.emissiveIntensity = tl.state === 'GREEN' ? 2 : 0;
+            
+            // Detecção de Infração por Trigger Zone
+            if (tl.state === 'RED' && this.state === 'PLAYING' && this.physics) {
+                const carPos = new THREE.Vector3(this.physics.x, 1, this.physics.z);
+                if (tl.triggerBox.containsPoint(carPos) && Math.abs(this.physics.speed) > 0.05 && !tl.punishedForCycle) {
                     this.score -= 20;
                     this.infractionsLog.redlights++;
                     tl.punishedForCycle = true;
+                    this.audio.playHorn(); // Aviso sonoro de infração
                     const w = document.getElementById('traffic-warning');
-                    if(w) { w.classList.remove('hidden'); setTimeout(()=>w.classList.add('hidden'), 1000); }
+                    if(w) { w.classList.remove('hidden'); setTimeout(()=>w.classList.add('hidden'), 1500); }
                 }
             }
-            if(tl.state === 'GREEN') tl.punishedForCycle = false;
         });
         
         if(this.state === 'PLAYING' && this.startTime) {
