@@ -127,11 +127,18 @@ class ParticleSystem {
     }
 
     emit(x, y, z, type = 'smoke', count = 1) {
-        if(this.pool.length > 150) return; // Limite para performance web
+        if(this.pool.length > 200) return; 
 
-        const color = type === 'smoke' ? 0xdddddd : 0x8b4513; 
-        const geo = new THREE.SphereGeometry(0.15, 6, 6);
-        const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.5 });
+        let color = 0xdddddd;
+        let size = 0.15;
+        let decay = 0.02;
+        let velocity = new THREE.Vector3((Math.random()-0.5)*0.03, 0.05 + Math.random()*0.05, (Math.random()-0.5)*0.03);
+
+        if(type === 'dust') { color = 0x8b4513; size = 0.2; decay = 0.03; }
+        if(type === 'sparks') { color = 0xfacc15; size = 0.1; decay = 0.05; velocity.multiplyScalar(3); }
+        
+        const geo = new THREE.SphereGeometry(size, 6, 6);
+        const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.7 });
         
         for(let i=0; i<count; i++) {
             const p = new THREE.Mesh(geo, mat);
@@ -140,9 +147,9 @@ class ParticleSystem {
             this.scene.add(p);
             this.pool.push({
                 mesh: p,
-                vel: new THREE.Vector3((Math.random()-0.5)*0.03, 0.05 + Math.random()*0.05, (Math.random()-0.5)*0.03),
+                vel: velocity.clone().add(new THREE.Vector3((Math.random()-0.5)*0.02, 0, (Math.random()-0.5)*0.02)),
                 life: 1.0,
-                decay: 0.02,
+                decay: decay,
                 type: type
             });
         }
@@ -451,13 +458,37 @@ class Game3D {
                 if(child.isMesh) {
                     child.castShadow = true;
                     if(child.material) {
-                        child.material.metalness = 0.7;
-                        child.material.roughness = 0.3;
+                        // Aplica Materiais PBR Conforme Documentação
+                        const isGlass = child.name.toLocaleLowerCase().includes('glass') || child.name.toLocaleLowerCase().includes('vidro');
+                        const isTire = child.name.toLocaleLowerCase().includes('wheel') || child.name.toLocaleLowerCase().includes('tire') || child.name.toLocaleLowerCase().includes('roda');
+                        
+                        if(isGlass) {
+                            child.material.transparent = true;
+                            child.material.opacity = 0.4;
+                            child.material.metalness = 0.9;
+                            child.material.roughness = 0.1;
+                        } else if(isTire) {
+                            child.material.metalness = 0;
+                            child.material.roughness = 0.9;
+                        } else {
+                            child.material.metalness = 0.8;
+                            child.material.roughness = 0.2;
+                        }
                     }
                 }
             });
             this.playerMesh.position.set(this.physics.x, 0, this.physics.z);
             this.scene.add(this.playerMesh);
+
+            // Luzes de Freio (Tags Reativas)
+            this.brakeLights = [];
+            this.playerMesh.traverse(c => {
+                if(c.name.toLocaleLowerCase().includes('brakelight') || c.name.toLocaleLowerCase().includes('lanterna')) {
+                    this.brakeLights.push(c);
+                    c.material.emissive = new THREE.Color(0xff0000);
+                    c.material.emissiveIntensity = 0;
+                }
+            });
 
             // Recalcular Hitbox baseada no modelo real
             const box = new THREE.Box3().setFromObject(this.playerMesh);
@@ -747,35 +778,50 @@ class Game3D {
         // Efeitos de Partículas Dinâmicos
         this.frameCounter++;
         if(this.frameCounter % 3 === 0) {
-            // Fumaça de escapamento (sempre um pouco, mais no W)
             const exhaustX = p.x + Math.sin(p.angle) * stats.length/2;
             const exhaustZ = p.z + Math.cos(p.angle) * stats.length/2;
+            
+            // Fumaça de escapamento
             if(this.input.isPressed('KeyW') || Math.abs(p.speed) < 0.1) {
                 this.particles.emit(exhaustX, 0.5, exhaustZ, 'smoke', 1);
             }
-            // Poeira de pneus (derrapada ao frear em velocidade ou curva forte)
-            if((this.input.isPressed('KeyS') && Math.abs(p.speed) > 0.3) || (Math.abs(turn) > 0.03 && speedRatio > 0.7)) {
-                this.particles.emit(p.x, 0.2, p.z, 'dust', 2);
+            
+            // Poeira de pneus (Freio ou Calçada)
+            const map = MAPS[this.selectedMapIdx];
+            const tileX = Math.floor(p.x / CONFIG.TILE_SIZE);
+            const tileZ = Math.floor(p.z / CONFIG.TILE_SIZE);
+            const currentTile = (tileX >= 0 && tileX < map[0].length && tileZ >= 0 && tileZ < map.length) ? map[tileZ][tileX] : 0;
+
+            if((this.input.isPressed('KeyS') && Math.abs(p.speed) > 0.3) || currentTile === 2) {
+                this.particles.emit(p.x, 0.2, p.z, 'dust', 1);
             }
         }
         
         // ----------------------------------------
         // ANIMAÇÃO DE SUSPENSÃO E DINÂMICA (Game Feel)
         // ----------------------------------------
-        // Roll (Curva): Inclina pro lado oposto ao giro
+        // Roll (Curva): Inclina pro lado oposto ao giro (Carro/Caminhão)
+        // Lean (Moto): Inclina pro MESMO lado do giro
         let rollTarget = 0;
         let pitchTarget = 0;
+        let leanFactor = this.vehicleType === 'moto' ? -0.3 : 0.08;
         
         if (speedRatio > 0.1) {
-            if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) rollTarget = 0.08;
-            if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) rollTarget = -0.08;
+            if (this.input.isPressed('KeyA') || this.input.isPressed('ArrowLeft')) rollTarget = leanFactor;
+            if (this.input.isPressed('KeyD') || this.input.isPressed('ArrowRight')) rollTarget = -leanFactor;
             
             // Pitch (Frenagem/Aceleração)
-            if (this.input.isPressed('KeyS') || this.input.isPressed('ArrowDown')) pitchTarget = 0.05; // Mergulha a frente
-            if (this.input.isPressed('KeyW') || this.input.isPressed('ArrowUp')) pitchTarget = -0.02; // Levanta a frente
+            if (this.input.isPressed('KeyS') || this.input.isPressed('ArrowDown')) pitchTarget = 0.05; 
+            if (this.input.isPressed('KeyW') || this.input.isPressed('ArrowUp')) pitchTarget = -0.02;
         }
 
-        // Interpolação suave para não tremer
+        // Luzes de Freio Reativas
+        if (this.brakeLights) {
+            const isBraking = this.input.isPressed('KeyS') || this.input.isPressed('ArrowDown');
+            this.brakeLights.forEach(l => l.material.emissiveIntensity = isBraking ? 3 : 0.2);
+        }
+
+        // Interpolação suave
         this.playerMesh.rotation.z += (rollTarget - this.playerMesh.rotation.z) * 0.1;
         this.playerMesh.rotation.x += (pitchTarget - this.playerMesh.rotation.x) * 0.1;
 
@@ -812,10 +858,14 @@ class Game3D {
         }
         
         if (hit) {
-            p.speed *= -0.5; // Kika pra trás nas batidas
+            p.speed *= -0.5;
             this.score -= 10;
             this.infractionsLog.bumps++;
             this.audio.playCrash();
+            
+            // Faíscas de Impacto
+            this.particles.emit(nextX, 1, nextZ, 'sparks', 10);
+            
             const flash = document.getElementById('damage-flash');
             if(flash) { flash.style.opacity = '1'; setTimeout(() => flash.style.opacity = '0', 100); }
             if (this.score <= 0) {
