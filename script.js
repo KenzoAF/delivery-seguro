@@ -267,6 +267,7 @@ class Game3D {
 
         const map = MAPS[this.selectedMapIdx];
         const ts = CONFIG.TILE_SIZE;
+        let bCount = 0;
         let sCount = 0;
         map.forEach(row => row.forEach(tile => { 
             if(tile === 3) bCount++; 
@@ -398,7 +399,7 @@ class Game3D {
                         x: conf.x, z: conf.z, state: conf.off ? 'RED' : 'GREEN', 
                         timer: 0, meshGroup: tl.group, lamps: { red: tl.red, yellow: tl.yellow, green: tl.green },
                         triggerBox: new THREE.Box3().setFromCenterAndSize(
-                            new THREE.Vector3(conf.tx * ts, 1, conf.tz * ts),
+                            new THREE.Vector3(conf.tx, 1, conf.tz),
                             new THREE.Vector3(ts, 2, ts)
                         ),
                         punishedForCycle: false
@@ -470,13 +471,22 @@ class Game3D {
                 group.add(w);
             });
 
-            // Luzes
+            // Faróis Frontais
             const lGeo = new THREE.BoxGeometry(0.4, 0.2, 0.1);
-            const headL = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
-            const headR = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
+            const headL = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5 }));
+            const headR = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5 }));
             headL.position.set(-st.width/3, st.height/2 + 0.4, -st.length/2);
             headR.position.set(st.width/3, st.height/2 + 0.4, -st.length/2);
             group.add(headL, headR);
+
+            // Lanternas Traseiras (Vermelhas)
+            const tGeo = new THREE.BoxGeometry(0.5, 0.2, 0.1);
+            const tailL = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
+            const tailR = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
+            tailL.name = 'brakelight_left'; tailR.name = 'brakelight_right';
+            tailL.position.set(-st.width/3, st.height/2 + 0.4, st.length/2);
+            tailR.position.set(st.width/3, st.height/2 + 0.4, st.length/2);
+            group.add(tailL, tailR);
 
             return group;
         };
@@ -485,6 +495,14 @@ class Game3D {
         this.playerMesh = createDetailedVehicleFallback(stats, this.vehicleType);
         this.playerMesh.position.set(this.physics.x, 0, this.physics.z);
         this.scene.add(this.playerMesh);
+
+        // Inicializa luzes de freio do fallback
+        this.brakeLights = [];
+        this.playerMesh.traverse(c => {
+            if(c.name && c.name.toLocaleLowerCase().includes('brakelight')) {
+                this.brakeLights.push(c);
+            }
+        });
 
         this.loader.load(stats.modelPath, (gltf) => {
             this.scene.remove(this.playerMesh);
