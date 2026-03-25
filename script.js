@@ -263,7 +263,7 @@ class Game3D {
         this.mapGroup.add(ground);
         
         // Setup Pedestrian Meshes
-        const pGeo = new THREE.CapsuleGeometry(0.5, 1, 4, 8);
+        const pGeo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
         const pMat = new THREE.MeshPhongMaterial({ color: 0xf59e0b });
         this.pedestrians.forEach(p => {
             const mesh = new THREE.Mesh(pGeo, pMat);
