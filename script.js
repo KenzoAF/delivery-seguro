@@ -435,12 +435,145 @@ class Game3D {
         
         // O carro precisa existir visualmente nas suas posições declaradas!
         // --- FALLBACK PRECIOSO ---
-        const createDetailedVehicleFallback = (st, type) => {
+        const createScooter = (st) => {
+            const g = new THREE.Group();
+            const matBody = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.8, roughness: 0.2 });
+            const matBlack = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+            const matChrome = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.95, roughness: 0.05 });
+            const matSkin = new THREE.MeshStandardMaterial({ color: 0xf5c6a0, roughness: 0.7 });
+            const matJacket = new THREE.MeshStandardMaterial({ color: 0xef4444, metalness: 0.3, roughness: 0.5 });
+            const matHelmet = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.6, roughness: 0.3 });
+            const matBox = new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.1, roughness: 0.6 });
+
+            // --- CORPO DA SCOOTER ---
+            // Carenagem principal (arredondada)
+            const carenGeo = new THREE.BoxGeometry(0.9, 0.6, 1.4);
+            const caren = new THREE.Mesh(carenGeo, matBody);
+            caren.position.set(0, 0.7, -0.1);
+            caren.castShadow = true;
+            g.add(caren);
+
+            // Plataforma de pés
+            const platGeo = new THREE.BoxGeometry(0.8, 0.1, 0.8);
+            const plat = new THREE.Mesh(platGeo, matBlack);
+            plat.position.set(0, 0.35, 0);
+            g.add(plat);
+
+            // Paralama traseiro
+            const fenderGeo = new THREE.BoxGeometry(0.5, 0.3, 0.6);
+            const fender = new THREE.Mesh(fenderGeo, matBody);
+            fender.position.set(0, 0.55, 0.7);
+            g.add(fender);
+
+            // Assento
+            const seatGeo = new THREE.BoxGeometry(0.5, 0.15, 0.7);
+            const seat = new THREE.Mesh(seatGeo, matBlack);
+            seat.position.set(0, 1.05, 0.4);
+            g.add(seat);
+
+            // --- GUIDÃO E COLUNA ---
+            // Coluna de direção
+            const colGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8);
+            const col = new THREE.Mesh(colGeo, matChrome);
+            col.position.set(0, 1.1, -0.6);
+            col.rotation.x = -0.3;
+            g.add(col);
+
+            // Guidão (barra horizontal)
+            const barGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.9, 8);
+            const bar = new THREE.Mesh(barGeo, matChrome);
+            bar.rotation.z = Math.PI / 2;
+            bar.position.set(0, 1.45, -0.7);
+            g.add(bar);
+
+            // Retrovisores
+            const mirGeo = new THREE.SphereGeometry(0.08, 8, 8);
+            const mirL = new THREE.Mesh(mirGeo, matChrome);
+            const mirR = new THREE.Mesh(mirGeo, matChrome);
+            mirL.position.set(-0.5, 1.5, -0.7);
+            mirR.position.set(0.5, 1.5, -0.7);
+            g.add(mirL, mirR);
+
+            // --- RODAS ---
+            const wGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.2, 16);
+            const wF = new THREE.Mesh(wGeo, matBlack);
+            wF.rotation.z = Math.PI / 2;
+            wF.position.set(0, 0.35, -0.9);
+            wF.name = 'FrontWheel';
+            g.add(wF);
+
+            const wR = new THREE.Mesh(wGeo, matBlack);
+            wR.rotation.z = Math.PI / 2;
+            wR.position.set(0, 0.35, 0.9);
+            wR.name = 'BackWheel';
+            g.add(wR);
+
+            // --- ENTREGADOR ---
+            // Corpo/Torso
+            const torsoGeo = new THREE.BoxGeometry(0.5, 0.6, 0.35);
+            const torso = new THREE.Mesh(torsoGeo, matJacket);
+            torso.position.set(0, 1.5, 0.2);
+            torso.castShadow = true;
+            g.add(torso);
+
+            // Cabeça com Capacete
+            const headGeo = new THREE.SphereGeometry(0.2, 12, 12);
+            const head = new THREE.Mesh(headGeo, matHelmet);
+            head.position.set(0, 1.95, 0.15);
+            head.castShadow = true;
+            g.add(head);
+
+            // Visor do Capacete
+            const visorGeo = new THREE.BoxGeometry(0.3, 0.1, 0.05);
+            const visor = new THREE.Mesh(visorGeo, new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.7 }));
+            visor.position.set(0, 1.92, -0.02);
+            g.add(visor);
+
+            // Braços
+            const armGeo = new THREE.BoxGeometry(0.12, 0.4, 0.12);
+            const armL = new THREE.Mesh(armGeo, matJacket);
+            const armR = new THREE.Mesh(armGeo, matJacket);
+            armL.position.set(-0.35, 1.4, 0);
+            armR.position.set(0.35, 1.4, 0);
+            armL.rotation.x = -0.5;
+            armR.rotation.x = -0.5;
+            g.add(armL, armR);
+
+            // --- BAÚL DE ENTREGA ---
+            const boxGeo = new THREE.BoxGeometry(0.7, 0.5, 0.5);
+            const box = new THREE.Mesh(boxGeo, matBox);
+            box.position.set(0, 1.45, 0.85);
+            box.castShadow = true;
+            g.add(box);
+
+            // Logo no baú (faixa)
+            const logoGeo = new THREE.BoxGeometry(0.72, 0.12, 0.01);
+            const logo = new THREE.Mesh(logoGeo, new THREE.MeshStandardMaterial({ color: 0x22c55e }));
+            logo.position.set(0, 1.5, 1.11);
+            g.add(logo);
+
+            // --- LUZES ---
+            // Farol frontal
+            const hlGeo = new THREE.SphereGeometry(0.1, 8, 8);
+            const hl = new THREE.Mesh(hlGeo, new THREE.MeshStandardMaterial({ color: 0xffffee, emissive: 0xffffee, emissiveIntensity: 2 }));
+            hl.position.set(0, 0.9, -0.85);
+            g.add(hl);
+
+            // Lanterna traseira
+            const tlGeo = new THREE.BoxGeometry(0.3, 0.1, 0.05);
+            const tail = new THREE.Mesh(tlGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
+            tail.name = 'brakelight_rear';
+            tail.position.set(0, 0.65, 1.0);
+            g.add(tail);
+
+            return g;
+        };
+
+        const createCarOrTruck = (st, type) => {
             const group = new THREE.Group();
             
             // Corpo Principal
-            const isMoto = type === 'moto';
-            const bodyH = isMoto ? st.height * 0.9 : st.height * 0.5;
+            const bodyH = st.height * 0.5;
             const bodyGeo = new THREE.BoxGeometry(st.width * 0.9, bodyH, st.length * 0.9);
             const bodyMat = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.8, roughness: 0.2 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
@@ -448,22 +581,17 @@ class Game3D {
             body.castShadow = true;
             group.add(body);
             
-            if(!isMoto) {
-                // Cabine/Teto
-                const cGeo = new THREE.BoxGeometry(st.width * 0.8, st.height * 0.5, st.length * 0.5);
-                const cMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.5, roughness: 0.1 });
-                const cab = new THREE.Mesh(cGeo, cMat);
-                cab.position.set(0, st.height * 0.8 + 0.4, type === 'truck' ? -st.length * 0.1 : 0);
-                group.add(cab);
-            }
+            // Cabine/Teto
+            const cGeo = new THREE.BoxGeometry(st.width * 0.8, st.height * 0.5, st.length * 0.5);
+            const cMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.5, roughness: 0.1 });
+            const cab = new THREE.Mesh(cGeo, cMat);
+            cab.position.set(0, st.height * 0.8 + 0.4, type === 'truck' ? -st.length * 0.1 : 0);
+            group.add(cab);
 
-            // Rodas (Neo-Retro)
+            // Rodas
             const wGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
             const wMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-            const wOffs = isMoto ? [{x:0, z:st.length/2}, {x:0, z:-st.length/2}] : 
-                         [{x:st.width/2, z:st.length/2-0.5}, {x:-st.width/2, z:st.length/2-0.5}, {x:st.width/2, z:-st.length/2+0.5}, {x:-st.width/2, z:-st.length/2+0.5}];
-            
-            wOffs.forEach((o, i) => {
+            [{x:st.width/2, z:st.length/2-0.5}, {x:-st.width/2, z:st.length/2-0.5}, {x:st.width/2, z:-st.length/2+0.5}, {x:-st.width/2, z:-st.length/2+0.5}].forEach((o, i) => {
                 const w = new THREE.Mesh(wGeo, wMat);
                 w.rotation.z = Math.PI/2;
                 w.name = (i < 2 ? "FrontWheel" : "BackWheel");
@@ -479,7 +607,7 @@ class Game3D {
             headR.position.set(st.width/3, st.height/2 + 0.4, -st.length/2);
             group.add(headL, headR);
 
-            // Lanternas Traseiras (Vermelhas)
+            // Lanternas Traseiras
             const tGeo = new THREE.BoxGeometry(0.5, 0.2, 0.1);
             const tailL = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
             const tailR = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
@@ -489,6 +617,10 @@ class Game3D {
             group.add(tailL, tailR);
 
             return group;
+        };
+
+        const createDetailedVehicleFallback = (st, type) => {
+            return type === 'moto' ? createScooter(st) : createCarOrTruck(st, type);
         };
 
         // Carrega o modelo Real ou usa o detalhado como fallback instantâneo
