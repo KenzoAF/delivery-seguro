@@ -1,5 +1,5 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'https://unpkg.com/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
+import * as THREE from 'https://esm.sh/three@0.128.0';
+import { GLTFLoader } from 'https://esm.sh/three@0.128.0/examples/jsm/loaders/GLTFLoader.js';
 
 console.log("Delivery Seguro 3D - v2 Local / Web Loaded correctly no cache");
 
