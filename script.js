@@ -347,18 +347,75 @@ class Game3D {
         };
         
         // O carro precisa existir visualmente nas suas posições declaradas!
-        const pGeo = new THREE.BoxGeometry(stats.width, stats.height, stats.length);
-        const pMat = new THREE.MeshPhongMaterial({ color: stats.color });
-        this.playerMesh = new THREE.Mesh(pGeo, pMat);
-        this.playerMesh.castShadow = true;
-        
-        // Força a posição imediata para o carro aparacer no mapa no local correto!!
-        this.playerMesh.position.set(this.physics.x, stats.height/2, this.physics.z);
+        // ---------------------------------------------------------
+        // NOVO MODELO DE VEÍCULO DETALHADO (Chassis, Rodas, Luzes)
+        // ---------------------------------------------------------
+        const createDetailedVehicle = (st, type) => {
+            const group = new THREE.Group();
+            
+            // 1. CARROCERIA (Base)
+            const bodyGeo = new THREE.BoxGeometry(st.width, st.height * 0.6, st.length);
+            const bodyMat = new THREE.MeshPhongMaterial({ color: st.color });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = st.height * 0.3 + 0.3; // Eleva um pouco das rodas
+            body.castShadow = true;
+            group.add(body);
+            
+            // 2. CABINE / JANELAS (Teto)
+            const cabinWidth = st.width * 0.85;
+            const cabinLength = st.length * 0.6;
+            const cabinGeo = new THREE.BoxGeometry(cabinWidth, st.height * 0.5, cabinLength);
+            const cabinMat = new THREE.MeshPhongMaterial({ color: 0x111111, transparent: true, opacity: 0.8 });
+            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+            cabin.position.set(0, st.height * 0.7 + 0.3, -st.length * 0.05);
+            group.add(cabin);
+
+            // 3. RODAS (Cilindros Pretos)
+            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
+            const wheelMat = new THREE.MeshPhongMaterial({ color: 0x111111 });
+            const wheelOffsets = [
+                { x: st.width/2, z: st.length/2 - 0.8 }, { x: -st.width/2, z: st.length/2 - 0.8 },
+                { x: st.width/2, z: -st.length/2 + 0.8 }, { x: -st.width/2, z: -st.length/2 + 0.8 }
+            ];
+            
+            wheelOffsets.forEach(offset => {
+                const w = new THREE.Mesh(wheelGeo, wheelMat);
+                w.rotation.z = Math.PI / 2; // Deita o cilindro
+                w.position.set(offset.x, 0.4, offset.z);
+                group.add(w);
+            });
+
+            // 4. FARÓIS FRONTAIS (Brancos Emissivos)
+            const headGeo = new THREE.BoxGeometry(0.5, 0.3, 0.1);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2 });
+            const headL = new THREE.Mesh(headGeo, headMat);
+            const headR = new THREE.Mesh(headGeo, headMat);
+            headL.position.set(-st.width/2 + 0.4, st.height * 0.4, -st.length/2);
+            headR.position.set(st.width/2 - 0.4, st.height * 0.4, -st.length/2);
+            group.add(headL, headR);
+
+            // 5. LANTERNAS TRASEIRAS (Vermelhas Emissivas)
+            const tailGeo = new THREE.BoxGeometry(0.6, 0.3, 0.1);
+            const tailMat = new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 2 });
+            const tailL = new THREE.Mesh(tailGeo, tailMat);
+            const tailR = new THREE.Mesh(tailGeo, tailMat);
+            tailL.position.set(-st.width/2 + 0.4, st.height * 0.4, st.length/2);
+            tailR.position.set(st.width/2 - 0.4, st.height * 0.4, st.length/2);
+            group.add(tailL, tailR);
+
+            return group;
+        };
+
+        this.playerMesh = createDetailedVehicle(stats, this.vehicleType);
+        this.playerMesh.position.set(this.physics.x, 0, this.physics.z); // Y=0 porque interno ele se sobe
         this.scene.add(this.playerMesh);
         
-        const fl = new THREE.PointLight(0xffffee, 1.5, 30);
-        fl.position.set(0, 0, -(stats.length/2) - 1);
+        // Faróis Dinâmicos (Luz Real)
+        const fl = new THREE.SpotLight(0xffffee, 2, 40, Math.PI/6, 0.5);
+        fl.position.set(0, 1, -stats.length/2);
+        fl.target.position.set(0, 0, -stats.length/2 - 10);
         this.playerMesh.add(fl);
+        this.playerMesh.add(fl.target);
     }
 
     initDOM() {
