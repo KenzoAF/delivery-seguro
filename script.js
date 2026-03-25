@@ -267,18 +267,28 @@ class Game3D {
 
         const map = MAPS[this.selectedMapIdx];
         const ts = CONFIG.TILE_SIZE;
-        let bCount = 0;
+        let sCount = 0;
+        map.forEach(row => row.forEach(tile => { 
+            if(tile === 3) bCount++; 
+            if(tile === 2) sCount++;
+        }));
         
-        map.forEach(row => row.forEach(tile => { if(tile === 3) bCount++; }));
+        // 1. EDIFÍCIOS VOLUMÉTRICOS
+        const bGeo = new THREE.BoxGeometry(ts * 0.9, 1, ts * 0.9);
+        const bMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0, roughness: 0.8 });
+        const bInst = new THREE.InstancedMesh(bGeo, bMat, bCount);
+        bInst.castShadow = true;
+        bInst.receiveShadow = true;
         
-        const bGeo = new THREE.BoxGeometry(ts, 1, ts);
-        const bMat = new THREE.MeshPhongMaterial({ color: 0x1e293b });
-        const instMesh = new THREE.InstancedMesh(bGeo, bMat, bCount);
-        instMesh.castShadow = true;
-        instMesh.receiveShadow = true;
-        
+        // 2. CALÇADAS (Volumétricas!)
+        const sGeo = new THREE.BoxGeometry(ts, 0.2, ts);
+        const sMat = new THREE.MeshStandardMaterial({ color: 0x475569 }); // Cinza claro pra destacar
+        const sInst = new THREE.InstancedMesh(sGeo, sMat, sCount);
+        sInst.receiveShadow = true;
+
         const dummy = new THREE.Object3D();
-        let idx = 0;
+        let bIdx = 0;
+        let sIdx = 0;
         this.goalPos = null;
 
         for (let r = 0; r < map.length; r++) {
@@ -288,15 +298,20 @@ class Game3D {
                 const z = r * ts;
 
                 if (tile === 3) {
-                    const h = 10 + Math.random() * 20; 
+                    const h = 8 + Math.random() * 25; 
                     dummy.position.set(x, h/2, z);
                     dummy.scale.set(1, h, 1);
                     dummy.updateMatrix();
-                    instMesh.setMatrixAt(idx++, dummy.matrix);
+                    bInst.setMatrixAt(bIdx++, dummy.matrix);
                     
                     const box = new THREE.Box3();
                     box.setFromCenterAndSize(new THREE.Vector3(x, h/2, z), new THREE.Vector3(ts, h, ts));
                     this.colliders.push(box);
+                } else if (tile === 2) {
+                    dummy.position.set(x, 0.1, z);
+                    dummy.scale.set(1, 1, 1);
+                    dummy.updateMatrix();
+                    sInst.setMatrixAt(sIdx++, dummy.matrix);
                 }
                 
                 // Pedestres
@@ -309,7 +324,8 @@ class Game3D {
                 }
             }
         }
-        this.mapGroup.add(instMesh);
+        this.mapGroup.add(bInst);
+        this.mapGroup.add(sInst);
 
         // Chão/Ground
         const w = map[0].length * ts;
@@ -417,32 +433,51 @@ class Game3D {
         };
         
         // O carro precisa existir visualmente nas suas posições declaradas!
-        // ---------------------------------------------------------
-        // SISTEMA DE CARREGAMENTO HÍBRIDO (GLTF + FALLBACK)
-        // ---------------------------------------------------------
+        // --- FALLBACK PRECIOSO ---
         const createDetailedVehicleFallback = (st, type) => {
             const group = new THREE.Group();
-            const bodyGeo = new THREE.BoxGeometry(st.width, st.height * 0.6, st.length);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.7, roughness: 0.3 });
+            
+            // Corpo Principal
+            const isMoto = type === 'moto';
+            const bodyH = isMoto ? st.height * 0.9 : st.height * 0.5;
+            const bodyGeo = new THREE.BoxGeometry(st.width * 0.9, bodyH, st.length * 0.9);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.8, roughness: 0.2 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = st.height * 0.3 + 0.3;
+            body.position.y = bodyH/2 + 0.4;
             body.castShadow = true;
             group.add(body);
             
-            const cabinGeo = new THREE.BoxGeometry(st.width * 0.8, st.height * 0.5, st.length * 0.6);
-            const cabinMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.5 });
-            const cabin = new THREE.Mesh(cabinGeo, cabinMat);
-            cabin.position.set(0, st.height * 0.7 + 0.3, -st.length * 0.05);
-            group.add(cabin);
+            if(!isMoto) {
+                // Cabine/Teto
+                const cGeo = new THREE.BoxGeometry(st.width * 0.8, st.height * 0.5, st.length * 0.5);
+                const cMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.5, roughness: 0.1 });
+                const cab = new THREE.Mesh(cGeo, cMat);
+                cab.position.set(0, st.height * 0.8 + 0.4, type === 'truck' ? -st.length * 0.1 : 0);
+                group.add(cab);
+            }
 
-            const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.4, 16);
-            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-            [{x:st.width/2, z:st.length/2-0.8}, {x:-st.width/2, z:st.length/2-0.8}, {x:st.width/2, z:-st.length/2+0.8}, {x:-st.width/2, z:-st.length/2+0.8}].forEach(o => {
-                const w = new THREE.Mesh(wheelGeo, wheelMat);
+            // Rodas (Neo-Retro)
+            const wGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+            const wOffs = isMoto ? [{x:0, z:st.length/2}, {x:0, z:-st.length/2}] : 
+                         [{x:st.width/2, z:st.length/2-0.5}, {x:-st.width/2, z:st.length/2-0.5}, {x:st.width/2, z:-st.length/2+0.5}, {x:-st.width/2, z:-st.length/2+0.5}];
+            
+            wOffs.forEach((o, i) => {
+                const w = new THREE.Mesh(wGeo, wMat);
                 w.rotation.z = Math.PI/2;
+                w.name = (i < 2 ? "FrontWheel" : "BackWheel");
                 w.position.set(o.x, 0.4, o.z);
                 group.add(w);
             });
+
+            // Luzes
+            const lGeo = new THREE.BoxGeometry(0.4, 0.2, 0.1);
+            const headL = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
+            const headR = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff }));
+            headL.position.set(-st.width/3, st.height/2 + 0.4, -st.length/2);
+            headR.position.set(st.width/3, st.height/2 + 0.4, -st.length/2);
+            group.add(headL, headR);
+
             return group;
         };
 
