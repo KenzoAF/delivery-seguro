@@ -32,16 +32,6 @@ function generateCityGrid(size) {
         }
     }
     
-    // Inserir destino na extremidade oposta da cidade
-    let goalPlaced = false;
-    for(let r = size - 3; r >= 0 && !goalPlaced; r--) {
-        for(let c = size - 3; c >= 0 && !goalPlaced; c--) {
-            if(map[r][c] === 1) {
-                map[r][c] = 4;
-                goalPlaced = true;
-            }
-        }
-    }
     return map;
 }
 
@@ -238,14 +228,6 @@ class Game3D {
                     box.setFromCenterAndSize(new THREE.Vector3(x, h/2, z), new THREE.Vector3(ts, h, ts));
                     this.colliders.push(box);
                 }
-                if (tile === 4) { // Destino Final
-                    const gGeo = new THREE.CylinderGeometry(ts/3, ts/3, 20, 16);
-                    const gMat = new THREE.MeshPhongMaterial({ color: 0x22c55e, transparent: true, opacity: 0.5, emissive: 0x22c55e });
-                    const goal = new THREE.Mesh(gGeo, gMat);
-                    goal.position.set(x, 10, z); 
-                    this.mapGroup.add(goal);
-                    this.goalPos = { x, z, radius: ts };
-                }
                 
                 // Pedestres
                 if (tile === 2 && Math.random() < 0.1) {
@@ -302,9 +284,10 @@ class Game3D {
             const red = new THREE.Mesh(lampGeo, new THREE.MeshStandardMaterial({ color: 0x220000, emissive: 0xff0000, emissiveIntensity: 0 }));
             const yellow = new THREE.Mesh(lampGeo, new THREE.MeshStandardMaterial({ color: 0x222200, emissive: 0xffff00, emissiveIntensity: 0 }));
             const green = new THREE.Mesh(lampGeo, new THREE.MeshStandardMaterial({ color: 0x002200, emissive: 0x00ff00, emissiveIntensity: 0 }));
-            red.position.set(0, 5.7, 0.6);
-            yellow.position.set(0, 5, 0.6);
-            green.position.set(0, 4.3, 0.6);
+            red.position.set(0, 5.8, 0.9);
+            yellow.position.set(0, 5, 0.9);
+            green.position.set(0, 4.2, 0.9);
+            
             group.add(red, yellow, green);
             return { group, red, yellow, green };
         };
@@ -394,8 +377,9 @@ class Game3D {
             b.onclick = () => {
                 document.querySelectorAll('.map-btn').forEach(x => x.classList.remove('active'));
                 b.classList.add('active');
-                this.selectedMapIdx = parseInt(b.dataset.map);
                 this.buildMap();
+                this.spawnPlayer();
+                this.spawnRandomObjective();
             };
         });
 
@@ -442,6 +426,7 @@ class Game3D {
         // Inicializar Mundo pela primeira vez!
         this.buildMap();
         this.spawnPlayer();
+        this.spawnRandomObjective();
         
         // Força a camera a ir pro carro de menu
         this.camera.position.set(this.physics.x, 10, this.physics.z + 15);
@@ -458,6 +443,53 @@ class Game3D {
         }
     }
 
+    spawnRandomObjective() {
+        if(this.goalMesh) {
+            this.mapGroup.remove(this.goalMesh);
+        }
+
+        const map = MAPS[this.selectedMapIdx];
+        const ts = CONFIG.TILE_SIZE;
+        const validTiles = [];
+        
+        // Coletar todos os tiles de calçada (ID 2)
+        for(let r=0; r<map.length; r++) {
+            for(let c=0; c<map[0].length; c++) {
+                if(map[r][c] === 2) {
+                    // Calcular distância em relação ao player (Spawn) em tiles
+                    const playerTileX = Math.floor(this.physics.x / ts);
+                    const playerTileZ = Math.floor(this.physics.z / ts);
+                    const distTile = Math.hypot(c - playerTileX, r - playerTileZ);
+                    
+                    if(distTile > 15) { // Distância mínima de 15 tiles
+                        validTiles.push({ r, c });
+                    }
+                }
+            }
+        }
+        
+        if(validTiles.length > 0) {
+            const pick = validTiles[Math.floor(Math.random() * validTiles.length)];
+            const x = pick.c * ts;
+            const z = pick.r * ts;
+            
+            const gGeo = new THREE.CylinderGeometry(ts/3, ts/3, 20, 16);
+            const gMat = new THREE.MeshPhongMaterial({ 
+                color: 0xfacc15, 
+                transparent: true, 
+                opacity: 0.5, 
+                emissive: 0xfacc15,
+                emissiveIntensity: 2
+            });
+            const goal = new THREE.Mesh(gGeo, gMat);
+            goal.position.set(x, 10, z);
+            
+            this.mapGroup.add(goal);
+            this.goalMesh = goal;
+            this.goalPos = { x, z, radius: ts };
+        }
+    }
+
     startDelivery() {
         document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
         document.getElementById('level-start-screen').classList.remove('hidden');
@@ -467,7 +499,15 @@ class Game3D {
         this.audio.start();
         this.buildMap();
         this.spawnPlayer();
-        
+        this.spawnRandomObjective();
+
+        // Mostrar Mensagem de Nova Entrega
+        const msg = document.createElement('div');
+        msg.innerHTML = "📍 NOVA ENTREGA LOCALIZADA:<br><small>SIGA O GPS NO MINI-MAPA</small>";
+        msg.style.cssText = "position:absolute; top:20%; left:50%; transform:translateX(-50%); background:rgba(15,23,42,0.9); color:#facc15; padding:20px 40px; border-radius:15px; text-align:center; font-weight:800; border:2px solid #facc15; z-index:1000; animation: fadeOut 3s forwards; pointer-events:none; font-family:'Outfit',sans-serif;";
+        document.body.appendChild(msg);
+        setTimeout(() => msg.remove(), 4000);
+
         let count = 3;
         const counter = document.getElementById('start-countdown');
         counter.innerText = count;
