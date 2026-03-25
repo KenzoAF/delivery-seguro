@@ -318,41 +318,53 @@ class Game3D {
         };
 
         // Escaneia o mapa procurando cruzamentos (Interseção de ruas ID 1)
-        for (let r = 0; r < map.length - 1; r++) {
-            for (let c = 0; c < map[0].length - 1; c++) {
-                // Se encontrar o canto superior esquerdo de um cruzamento 2x2 de ruas (ID 1)
+        for (let r = 2; r < map.length - 2; r++) {
+            for (let c = 2; c < map[0].length - 2; c++) {
+                // Identifica o ponto zero de um cruzamento real (Vertical cruza Horizontal)
                 if (map[r][c] === 1 && map[r+1][c] === 1 && map[r][c+1] === 1 && map[r+1][c+1] === 1) {
                     
-                    // Coloca 4 semáforos, um em cada entrada do cruzamento
-                    const configs = [
-                        { x: (c-1)*ts, z: (r+0.5)*ts, ang: -Math.PI/2, offset: false }, // Esquerda
-                        { x: (c+2)*ts, z: (r+1.5)*ts, ang: Math.PI/2, offset: false },  // Direita
-                        { x: (c+0.5)*ts, z: (r+2)*ts, ang: 0, offset: true },           // Baixo
-                        { x: (c+1.5)*ts, z: (r-1)*ts, ang: Math.PI, offset: true }      // Cima
-                    ];
+                    const hasVerticalRoad = map[r-1][c] === 1 || map[r+2][c] === 1;
+                    const hasHorizontalRoad = map[r][c-1] === 1 || map[r][c+2] === 1;
 
-                    configs.forEach(conf => {
-                        const tl = createTrafficLightModel(conf.offset);
-                        tl.group.position.set(conf.x, 0, conf.z);
-                        tl.group.rotation.y = conf.ang;
-                        this.mapGroup.add(tl.group);
+                    // Somente coloca semáforo se houver cruzamento de eixos (ID 1 em cruz)
+                    if (hasVerticalRoad && hasHorizontalRoad) {
                         
-                        this.trafficLights.push({
-                            x: conf.x, z: conf.z,
-                            state: conf.offset ? 'RED' : 'GREEN', // Sincronização: metade começa vermelho
-                            timer: conf.offset ? 0 : 0, 
-                            meshGroup: tl.group,
-                            lamps: { red: tl.red, yellow: tl.yellow, green: tl.green },
-                            triggerBox: new THREE.Box3().setFromCenterAndSize(
-                                new THREE.Vector3(conf.x - Math.sin(conf.ang)*5, 1, conf.z - Math.cos(conf.ang)*5),
-                                new THREE.Vector3(ts, 2, ts)
-                            ),
-                            punishedForCycle: false
+                        // Posiciona 4 semáforos exatamente nos cantos da calçada (Tile 2)
+                        // ts = tile size. c,r = início da via 2x2 no asfalto.
+                        const configs = [
+                            // Direcao vindo de Cima (Sul) -> Semáforo no Canto Superior Esquerdo
+                            { x: (c-1.2)*ts, z: (r-1.2)*ts, ang: 0, offset: false, tx: (c+0.5)*ts, tz: (r-1)*ts }, 
+                            // Direcao vindo de Baixo (Norte) -> Semáforo no Canto Inferior Direito
+                            { x: (c+2.2)*ts, z: (r+2.2)*ts, ang: Math.PI, offset: false, tx: (c+1.5)*ts, tz: (r+2)*ts },
+                            // Direcao vindo da Esquerda (Leste) -> Semáforo no Canto Inferior Esquerdo
+                            { x: (c-1.2)*ts, z: (r+2.2)*ts, ang: -Math.PI/2, offset: true, tx: (c-1)*ts, tz: (r+1.5)*ts },
+                            // Direcao vindo da Direita (Oeste) -> Semáforo no Canto Superior Direito
+                            { x: (c+2.2)*ts, z: (r-1.2)*ts, ang: Math.PI/2, offset: true, tx: (c+2)*ts, tz: (r+0.5)*ts }
+                        ];
+
+                        configs.forEach(conf => {
+                            const tl = createTrafficLightModel();
+                            tl.group.position.set(conf.x, 0, conf.z);
+                            tl.group.rotation.y = conf.ang;
+                            this.mapGroup.add(tl.group);
+                            
+                            this.trafficLights.push({
+                                x: conf.x, z: conf.z,
+                                state: conf.offset ? 'RED' : 'GREEN', 
+                                timer: 0, 
+                                meshGroup: tl.group,
+                                lamps: { red: tl.red, yellow: tl.yellow, green: tl.green },
+                                triggerBox: new THREE.Box3().setFromCenterAndSize(
+                                    new THREE.Vector3(conf.tx, 1, conf.tz),
+                                    new THREE.Vector3(ts, 2, ts)
+                                ),
+                                punishedForCycle: false
+                            });
                         });
-                    });
-                    
-                    // Pula o resto do cruzamento para não duplicar semáforos
-                    c += 1;
+                        
+                        // Pula o resto dessa interseção 2x2 para não duplicar detecção
+                        c += 1;
+                    }
                 }
             }
         }
