@@ -569,58 +569,237 @@ class Game3D {
             return g;
         };
 
-        const createCarOrTruck = (st, type) => {
-            const group = new THREE.Group();
-            
-            // Corpo Principal
-            const bodyH = st.height * 0.5;
-            const bodyGeo = new THREE.BoxGeometry(st.width * 0.9, bodyH, st.length * 0.9);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.8, roughness: 0.2 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = bodyH/2 + 0.4;
-            body.castShadow = true;
-            group.add(body);
-            
-            // Cabine/Teto
-            const cGeo = new THREE.BoxGeometry(st.width * 0.8, st.height * 0.5, st.length * 0.5);
-            const cMat = new THREE.MeshStandardMaterial({ color: 0x000000, transparent: true, opacity: 0.5, roughness: 0.1 });
-            const cab = new THREE.Mesh(cGeo, cMat);
-            cab.position.set(0, st.height * 0.8 + 0.4, type === 'truck' ? -st.length * 0.1 : 0);
-            group.add(cab);
+        const createCar = (st) => {
+            const g = new THREE.Group();
+            const matPaint = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.85, roughness: 0.15 });
+            const matBlack = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+            const matGlass = new THREE.MeshStandardMaterial({ color: 0x88ccff, transparent: true, opacity: 0.45, metalness: 0.9, roughness: 0.05 });
+            const matChrome = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.95, roughness: 0.05 });
 
-            // Rodas
-            const wGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 16);
-            const wMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-            [{x:st.width/2, z:st.length/2-0.5}, {x:-st.width/2, z:st.length/2-0.5}, {x:st.width/2, z:-st.length/2+0.5}, {x:-st.width/2, z:-st.length/2+0.5}].forEach((o, i) => {
+            // --- CARROCERIA PRINCIPAL ---
+            // Base do corpo (mais largo no meio, mais baixo)
+            const bodyGeo = new THREE.BoxGeometry(st.width * 0.95, 0.5, st.length * 0.95);
+            const body = new THREE.Mesh(bodyGeo, matPaint);
+            body.position.y = 0.65;
+            body.castShadow = true;
+            g.add(body);
+
+            // Capô (frente, mais baixo que o corpo)
+            const hoodGeo = new THREE.BoxGeometry(st.width * 0.9, 0.15, st.length * 0.3);
+            const hood = new THREE.Mesh(hoodGeo, matPaint);
+            hood.position.set(0, 0.82, -st.length * 0.3);
+            hood.castShadow = true;
+            g.add(hood);
+
+            // Porta-malas (traseira, um pouco mais alto)
+            const trunkGeo = new THREE.BoxGeometry(st.width * 0.9, 0.2, st.length * 0.25);
+            const trunk = new THREE.Mesh(trunkGeo, matPaint);
+            trunk.position.set(0, 0.8, st.length * 0.32);
+            trunk.castShadow = true;
+            g.add(trunk);
+
+            // --- CABINE (Vidros) ---
+            // Teto
+            const roofGeo = new THREE.BoxGeometry(st.width * 0.82, 0.12, st.length * 0.38);
+            const roof = new THREE.Mesh(roofGeo, matPaint);
+            roof.position.set(0, 1.3, 0.05);
+            roof.castShadow = true;
+            g.add(roof);
+
+            // Para-brisa frontal (inclinado)
+            const wsGeo = new THREE.BoxGeometry(st.width * 0.78, 0.4, 0.08);
+            const ws = new THREE.Mesh(wsGeo, matGlass);
+            ws.position.set(0, 1.1, -st.length * 0.14);
+            ws.rotation.x = 0.35;
+            g.add(ws);
+
+            // Vidro traseiro (inclinado)
+            const rwGeo = new THREE.BoxGeometry(st.width * 0.75, 0.35, 0.08);
+            const rw = new THREE.Mesh(rwGeo, matGlass);
+            rw.position.set(0, 1.1, st.length * 0.17);
+            rw.rotation.x = -0.35;
+            g.add(rw);
+
+            // Janelas laterais (esquerda e direita)
+            const swGeo = new THREE.BoxGeometry(0.06, 0.3, st.length * 0.32);
+            const swL = new THREE.Mesh(swGeo, matGlass);
+            const swR = new THREE.Mesh(swGeo, matGlass);
+            swL.position.set(-st.width * 0.42, 1.08, 0.02);
+            swR.position.set(st.width * 0.42, 1.08, 0.02);
+            g.add(swL, swR);
+
+            // --- PARA-CHOQUES ---
+            const bmpGeo = new THREE.BoxGeometry(st.width * 0.98, 0.18, 0.15);
+            const bmpF = new THREE.Mesh(bmpGeo, matBlack);
+            const bmpR = new THREE.Mesh(bmpGeo, matBlack);
+            bmpF.position.set(0, 0.45, -st.length/2 + 0.05);
+            bmpR.position.set(0, 0.45, st.length/2 - 0.05);
+            g.add(bmpF, bmpR);
+
+            // Grelha frontal
+            const grillGeo = new THREE.BoxGeometry(st.width * 0.6, 0.2, 0.05);
+            const grill = new THREE.Mesh(grillGeo, matBlack);
+            grill.position.set(0, 0.6, -st.length/2 + 0.02);
+            g.add(grill);
+
+            // --- RETROVISORES ---
+            const mirGeo = new THREE.BoxGeometry(0.12, 0.1, 0.15);
+            const mirL = new THREE.Mesh(mirGeo, matPaint);
+            const mirR = new THREE.Mesh(mirGeo, matPaint);
+            mirL.position.set(-st.width/2 - 0.08, 0.95, -st.length * 0.12);
+            mirR.position.set(st.width/2 + 0.08, 0.95, -st.length * 0.12);
+            g.add(mirL, mirR);
+
+            // --- RODAS ---
+            const wGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.28, 16);
+            const hubGeo = new THREE.CylinderGeometry(0.15, 0.15, 0.3, 12);
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.95 });
+            const hubMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.2 });
+            
+            [{x: st.width/2, z: st.length/2 - 0.6}, {x: -st.width/2, z: st.length/2 - 0.6},
+             {x: st.width/2, z: -st.length/2 + 0.6}, {x: -st.width/2, z: -st.length/2 + 0.6}].forEach((o, i) => {
                 const w = new THREE.Mesh(wGeo, wMat);
                 w.rotation.z = Math.PI/2;
                 w.name = (i < 2 ? "FrontWheel" : "BackWheel");
-                w.position.set(o.x, 0.4, o.z);
-                group.add(w);
+                w.position.set(o.x, 0.38, o.z);
+                g.add(w);
+                // Calota
+                const hub = new THREE.Mesh(hubGeo, hubMat);
+                hub.rotation.z = Math.PI/2;
+                hub.position.set(o.x > 0 ? o.x + 0.02 : o.x - 0.02, 0.38, o.z);
+                g.add(hub);
             });
 
-            // Faróis Frontais
-            const lGeo = new THREE.BoxGeometry(0.4, 0.2, 0.1);
-            const headL = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5 }));
-            const headR = new THREE.Mesh(lGeo, new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5 }));
-            headL.position.set(-st.width/3, st.height/2 + 0.4, -st.length/2);
-            headR.position.set(st.width/3, st.height/2 + 0.4, -st.length/2);
-            group.add(headL, headR);
+            // --- FARÓIS ---
+            const hlGeo = new THREE.SphereGeometry(0.13, 8, 8);
+            const hlMat = new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 2 });
+            const hlL = new THREE.Mesh(hlGeo, hlMat);
+            const hlR = new THREE.Mesh(hlGeo, hlMat);
+            hlL.position.set(-st.width/3, 0.7, -st.length/2 + 0.02);
+            hlR.position.set(st.width/3, 0.7, -st.length/2 + 0.02);
+            g.add(hlL, hlR);
 
-            // Lanternas Traseiras
-            const tGeo = new THREE.BoxGeometry(0.5, 0.2, 0.1);
-            const tailL = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
-            const tailR = new THREE.Mesh(tGeo, new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 }));
-            tailL.name = 'brakelight_left'; tailR.name = 'brakelight_right';
-            tailL.position.set(-st.width/3, st.height/2 + 0.4, st.length/2);
-            tailR.position.set(st.width/3, st.height/2 + 0.4, st.length/2);
-            group.add(tailL, tailR);
+            // --- LANTERNAS TRASEIRAS ---
+            const tlGeo = new THREE.BoxGeometry(0.25, 0.15, 0.08);
+            const tlMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 });
+            const tlL = new THREE.Mesh(tlGeo, tlMat);
+            const tlR = new THREE.Mesh(tlGeo, tlMat);
+            tlL.name = 'brakelight_left'; tlR.name = 'brakelight_right';
+            tlL.position.set(-st.width/3, 0.7, st.length/2 - 0.02);
+            tlR.position.set(st.width/3, 0.7, st.length/2 - 0.02);
+            g.add(tlL, tlR);
 
-            return group;
+            return g;
+        };
+
+        const createTruck = (st) => {
+            const g = new THREE.Group();
+            const matPaint = new THREE.MeshStandardMaterial({ color: st.color, metalness: 0.7, roughness: 0.3 });
+            const matBlack = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+            const matGlass = new THREE.MeshStandardMaterial({ color: 0x88ccff, transparent: true, opacity: 0.4, metalness: 0.8, roughness: 0.1 });
+            const matWhite = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.6 });
+
+            // Cabine
+            const cabGeo = new THREE.BoxGeometry(st.width * 0.85, 1.4, st.length * 0.3);
+            const cab = new THREE.Mesh(cabGeo, matPaint);
+            cab.position.set(0, 1.1, -st.length * 0.3);
+            cab.castShadow = true;
+            g.add(cab);
+
+            // Para-brisa cabine
+            const wsGeo = new THREE.BoxGeometry(st.width * 0.75, 0.6, 0.06);
+            const ws = new THREE.Mesh(wsGeo, matGlass);
+            ws.position.set(0, 1.5, -st.length * 0.46);
+            g.add(ws);
+
+            // Janelas laterais cabine
+            const swGeo = new THREE.BoxGeometry(0.06, 0.5, st.length * 0.2);
+            const swL = new THREE.Mesh(swGeo, matGlass);
+            const swR = new THREE.Mesh(swGeo, matGlass);
+            swL.position.set(-st.width * 0.44, 1.5, -st.length * 0.3);
+            swR.position.set(st.width * 0.44, 1.5, -st.length * 0.3);
+            g.add(swL, swR);
+
+            // Baú de carga
+            const boxGeo = new THREE.BoxGeometry(st.width * 0.95, 1.8, st.length * 0.55);
+            const box = new THREE.Mesh(boxGeo, matWhite);
+            box.position.set(0, 1.3, st.length * 0.18);
+            box.castShadow = true;
+            g.add(box);
+
+            // Faixa decorativa no baú
+            const stripeGeo = new THREE.BoxGeometry(st.width * 0.96, 0.15, 0.05);
+            const stripe = new THREE.Mesh(stripeGeo, new THREE.MeshStandardMaterial({ color: 0x1d4ed8 }));
+            stripe.position.set(0, 1.2, st.length * 0.46);
+            g.add(stripe);
+
+            // Para-choques
+            const bmpGeo = new THREE.BoxGeometry(st.width, 0.25, 0.2);
+            const bmpF = new THREE.Mesh(bmpGeo, matBlack);
+            bmpF.position.set(0, 0.5, -st.length/2 + 0.05);
+            g.add(bmpF);
+
+            // Grelha radiador
+            const grillGeo = new THREE.BoxGeometry(st.width * 0.7, 0.5, 0.06);
+            const grill = new THREE.Mesh(grillGeo, new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.1 }));
+            grill.position.set(0, 0.7, -st.length/2 + 0.02);
+            g.add(grill);
+
+            // 6 Rodas (duplas na traseira)
+            const wGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.35, 16);
+            const wMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.95 });
+            // Dianteiras
+            [{x: st.width/2, z: -st.length/2 + 1}, {x: -st.width/2, z: -st.length/2 + 1}].forEach((o, i) => {
+                const w = new THREE.Mesh(wGeo, wMat);
+                w.rotation.z = Math.PI/2;
+                w.name = 'FrontWheel';
+                w.position.set(o.x, 0.5, o.z);
+                g.add(w);
+            });
+            // Traseiras (duplas)
+            [{x: st.width/2, z: st.length/2 - 0.8}, {x: -st.width/2, z: st.length/2 - 0.8},
+             {x: st.width/2 + 0.15, z: st.length/2 - 0.8}, {x: -st.width/2 - 0.15, z: st.length/2 - 0.8}].forEach((o) => {
+                const w = new THREE.Mesh(wGeo, wMat);
+                w.rotation.z = Math.PI/2;
+                w.name = 'BackWheel';
+                w.position.set(o.x, 0.5, o.z);
+                g.add(w);
+            });
+
+            // Faróis
+            const hlGeo = new THREE.BoxGeometry(0.35, 0.25, 0.08);
+            const hlMat = new THREE.MeshStandardMaterial({ color: 0xffffcc, emissive: 0xffffcc, emissiveIntensity: 2 });
+            const hlL = new THREE.Mesh(hlGeo, hlMat);
+            const hlR = new THREE.Mesh(hlGeo, hlMat);
+            hlL.position.set(-st.width/3, 0.8, -st.length/2 + 0.02);
+            hlR.position.set(st.width/3, 0.8, -st.length/2 + 0.02);
+            g.add(hlL, hlR);
+
+            // Lanternas traseiras (altas, verticais)
+            const tlGeo = new THREE.BoxGeometry(0.15, 0.5, 0.08);
+            const tlMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 1.0 });
+            const tlL = new THREE.Mesh(tlGeo, tlMat);
+            const tlR = new THREE.Mesh(tlGeo, tlMat);
+            tlL.name = 'brakelight_left'; tlR.name = 'brakelight_right';
+            tlL.position.set(-st.width * 0.45, 1.5, st.length/2 - 0.02);
+            tlR.position.set(st.width * 0.45, 1.5, st.length/2 - 0.02);
+            g.add(tlL, tlR);
+
+            // Retrovisores
+            const mirGeo = new THREE.BoxGeometry(0.15, 0.12, 0.2);
+            const mirL = new THREE.Mesh(mirGeo, matBlack);
+            const mirR = new THREE.Mesh(mirGeo, matBlack);
+            mirL.position.set(-st.width/2 - 0.12, 1.6, -st.length * 0.35);
+            mirR.position.set(st.width/2 + 0.12, 1.6, -st.length * 0.35);
+            g.add(mirL, mirR);
+
+            return g;
         };
 
         const createDetailedVehicleFallback = (st, type) => {
-            return type === 'moto' ? createScooter(st) : createCarOrTruck(st, type);
+            if (type === 'moto') return createScooter(st);
+            if (type === 'truck') return createTruck(st);
+            return createCar(st);
         };
 
         // Carrega o modelo Real ou usa o detalhado como fallback instantâneo
