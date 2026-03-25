@@ -339,18 +339,82 @@ class Game3D {
         ground.receiveShadow = true;
         this.mapGroup.add(ground);
         
-        // Render Pedestres
-        if(THREE.CylinderGeometry) {
-            const pGeo = new THREE.CylinderGeometry(0.5, 0.5, 2, 8);
-            const pMat = new THREE.MeshPhongMaterial({ color: 0xf59e0b });
-            this.pedestrians.forEach(p => {
-                const mesh = new THREE.Mesh(pGeo, pMat);
-                mesh.position.set(p.x, 1, p.z);
-                mesh.castShadow = true;
-                this.mapGroup.add(mesh);
-                p.mesh = mesh;
-            });
-        }
+        // Render Pedestres (Humanoides Estilizados)
+        const shirtColors = [0xef4444, 0x3b82f6, 0x22c55e, 0xf59e0b, 0x8b5cf6, 0xec4899, 0x14b8a6, 0xf97316];
+        
+        const createPedestrianModel = () => {
+            const g = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xf5deb3, roughness: 0.7 });
+            const shirtColor = shirtColors[Math.floor(Math.random() * shirtColors.length)];
+            const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.6 });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+            const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+
+            // Cabeça (esfera grande, estilo cartoon)
+            const headGeo = new THREE.SphereGeometry(0.28, 12, 12);
+            const head = new THREE.Mesh(headGeo, skinMat);
+            head.position.y = 1.65;
+            head.castShadow = true;
+            g.add(head);
+
+            // Olhos
+            const eyeGeo = new THREE.SphereGeometry(0.04, 6, 6);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+            const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+            eyeL.position.set(-0.1, 1.68, -0.24);
+            eyeR.position.set(0.1, 1.68, -0.24);
+            g.add(eyeL, eyeR);
+
+            // Corpo/Torso (camisa)
+            const torsoGeo = new THREE.BoxGeometry(0.45, 0.55, 0.3);
+            const torso = new THREE.Mesh(torsoGeo, shirtMat);
+            torso.position.y = 1.15;
+            torso.castShadow = true;
+            g.add(torso);
+
+            // Braços
+            const armGeo = new THREE.BoxGeometry(0.13, 0.45, 0.13);
+            const armL = new THREE.Mesh(armGeo, shirtMat);
+            const armR = new THREE.Mesh(armGeo, shirtMat);
+            armL.position.set(-0.32, 1.1, 0);
+            armR.position.set(0.32, 1.1, 0);
+            g.add(armL, armR);
+
+            // Mãos
+            const handGeo = new THREE.SphereGeometry(0.07, 6, 6);
+            const handL = new THREE.Mesh(handGeo, skinMat);
+            const handR = new THREE.Mesh(handGeo, skinMat);
+            handL.position.set(-0.32, 0.83, 0);
+            handR.position.set(0.32, 0.83, 0);
+            g.add(handL, handR);
+
+            // Pernas (calça)
+            const legGeo = new THREE.BoxGeometry(0.16, 0.5, 0.16);
+            const legL = new THREE.Mesh(legGeo, pantsMat);
+            const legR = new THREE.Mesh(legGeo, pantsMat);
+            legL.position.set(-0.12, 0.6, 0);
+            legR.position.set(0.12, 0.6, 0);
+            g.add(legL, legR);
+
+            // Sapatos
+            const shoeGeo = new THREE.BoxGeometry(0.17, 0.1, 0.25);
+            const shoeL = new THREE.Mesh(shoeGeo, shoeMat);
+            const shoeR = new THREE.Mesh(shoeGeo, shoeMat);
+            shoeL.position.set(-0.12, 0.32, -0.03);
+            shoeR.position.set(0.12, 0.32, -0.03);
+            g.add(shoeL, shoeR);
+
+            return g;
+        };
+
+        this.pedestrians.forEach(p => {
+            const mesh = createPedestrianModel();
+            mesh.position.set(p.x, 0, p.z);
+            mesh.rotation.y = Math.random() * Math.PI * 2;
+            this.mapGroup.add(mesh);
+            p.mesh = mesh;
+        });
 
         // ---------------------------------------------------------
         // GERADOR DE SEMÁFOROS (Somente em cruzamentos reais)
