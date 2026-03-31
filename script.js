@@ -28,6 +28,14 @@ const CONFIG = {
     WEATHER: {
         SUNNY: { friction: 1.0, visibility: 1.0 },
         RAINY: { friction: 0.7, visibility: 0.8 }
+    },
+
+    // LIMITAÇÕES DO MAPA
+    MAP: {
+        MIN_X: -450,
+        MAX_X: 4450,
+        MIN_Y: 20,
+        MAX_Y: 980
     }
 };
 
@@ -127,7 +135,26 @@ class PlayerVehicle {
         this.x += this.velocity.x;
         this.y += this.velocity.y;
 
-        // 4. Verificação de Dano por Imprudência (G-Force)
+        // 4. Barreiras do Mapa (Colisão Simples)
+        const hitWall = (
+            this.x < CONFIG.MAP.MIN_X || this.x > CONFIG.MAP.MAX_X ||
+            this.y < CONFIG.MAP.MIN_Y || this.y > CONFIG.MAP.MAX_Y
+        );
+
+        if (hitWall) {
+            // Reposicionar e aplicar penalidade de velocidade (efeito de choque)
+            this.x = Math.max(CONFIG.MAP.MIN_X, Math.min(this.x, CONFIG.MAP.MAX_X));
+            this.y = Math.max(CONFIG.MAP.MIN_Y, Math.min(this.y, CONFIG.MAP.MAX_Y));
+            
+            if (Math.abs(this.speed) > 1.5) {
+                this.applyPackageDamage(0.05); // Dano pesado ao bater na barreira
+                this.speed *= -0.3; // Bate e volta um pouco
+            } else {
+                this.speed = 0;
+            }
+        }
+
+        // 5. Verificação de Dano por Imprudência (G-Force)
         if (speedRatio > CONFIG.CAR.G_THRESHOLD && (input.isPressed('KeyA') || input.isPressed('KeyD'))) {
             this.applyPackageDamage(0.001 * speedRatio);
         }
@@ -596,6 +623,13 @@ class Game {
         this.ctx.fillStyle = '#064e3b';
         this.ctx.fillRect(-500, 0, 5000, 300);
         this.ctx.fillRect(-500, 700, 5000, 300);
+
+        // Barreiras Visuais (Guias/Calçadas)
+        this.ctx.fillStyle = '#64748b'; // Cor das guias/meio-fio
+        this.ctx.fillRect(-500, 0, 5000, 20); // Top wall
+        this.ctx.fillRect(-500, 980, 5000, 20); // Bottom wall
+        this.ctx.fillRect(-500, 0, 20, 1000); // Left wall
+        this.ctx.fillRect(4480, 0, 20, 1000); // Right wall
 
         // Central Line
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
